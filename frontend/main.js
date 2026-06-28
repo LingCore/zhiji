@@ -230,10 +230,59 @@ const viewTitles = {
   hardware: ["Hardware", "硬件信息"]
 };
 
+viewTitles.monitorIdentity = ["显示器身份", "显示器身份"];
+
 const gamingPreviewExePath = "C:\\Games\\Example\\game.exe";
+
+const monitorIdentityPreviewStatus = {
+  is_administrator: true,
+  active_monitor_count: 1,
+  pending_confirmation: null,
+  change_count: 0,
+  monitors: [
+    {
+      instance_name: "DISPLAY\\LHC906A\\PREVIEW_0",
+      device_instance_id: "DISPLAY\\LHC906A\\PREVIEW",
+      hardware_id: "MONITOR\\LHC906A",
+      registry_path: "SYSTEM\\CurrentControlSet\\Enum\\DISPLAY\\LHC906A\\PREVIEW\\Device Parameters",
+      active: true,
+      edid_present: true,
+      override_present: false,
+      windows_reported: {
+        manufacturer_id: "LHC",
+        product_code: "906A",
+        serial_number: "P2710VMAX01",
+        monitor_name: "P2710V MAX",
+        hardware_id: "MONITOR\\LHC906A"
+      },
+      current: {
+        manufacturer_id: "LHC",
+        product_code_hex: "906A",
+        numeric_serial: 100200300,
+        serial_number: "P2710VMAX01",
+        monitor_name: "P2710V MAX",
+        checksum_valid: true,
+        windows_hardware_id: "MONITOR\\LHC906A"
+      },
+      original: {
+        manufacturer_id: "LHC",
+        product_code_hex: "906A",
+        numeric_serial: 100200300,
+        serial_number: "P2710VMAX01",
+        monitor_name: "P2710V MAX",
+        checksum_valid: true,
+        windows_hardware_id: "MONITOR\\LHC906A"
+      }
+    }
+  ],
+  changes: []
+};
 
 let gamingSelectedGamePath = "";
 let gamingOptimizerStatus = null;
+let monitorIdentityStatus = null;
+let monitorIdentityInitPromise = null;
+let monitorIdentityCountdownTimer = null;
 
 const invoke = () => {
   if (hasTauri) {
@@ -311,6 +360,83 @@ const invoke = () => {
         message: "浏览器预览模式：这里会按记录还原竞技模式改动。",
         requires_restart: true,
         output: "Preview only"
+      };
+    }
+
+    if (command === "monitor_identity_get_status") {
+      return monitorIdentityPreviewStatus;
+    }
+
+    if (command === "monitor_identity_apply_override" || command === "monitor_identity_install_inf_override") {
+      const now = Date.now();
+      const isInfInstall = command === "monitor_identity_install_inf_override";
+      const pending = {
+        token: `preview-${now}`,
+        change_id: `preview-change-${now}`,
+        monitor_device_instance_id: args?.request?.monitor_device_instance_id || "DISPLAY\\LHC906A\\PREVIEW",
+        expires_at: new Date(now + 30_000).toISOString(),
+        seconds_remaining: 30
+      };
+      monitorIdentityPreviewStatus.pending_confirmation = pending;
+      monitorIdentityPreviewStatus.change_count += 1;
+      monitorIdentityPreviewStatus.changes.unshift({
+        id: pending.change_id,
+        status: "pending",
+        apply_mode: isInfInstall ? "inf_driver" : "registry_override",
+        applied_at: new Date(now).toISOString(),
+        confirmed_at: null,
+        rolled_back_at: null,
+        rollback_token: pending.token,
+        expires_at: pending.expires_at,
+        monitor_device_instance_id: pending.monitor_device_instance_id,
+        original_hardware_id: "MONITOR\\LHC906A",
+        target_hardware_id: `MONITOR\\${args?.request?.manufacturer_id || "DEL"}${args?.request?.product_code_hex || "A123"}`,
+        registry_path: "预览模式注册表路径",
+        generated_inf_path: "预览模式 INF",
+        published_driver_inf: isInfInstall ? "oem42.inf" : null,
+        output: isInfInstall ? "仅预览：这里会执行 pnputil /add-driver /install" : "仅预览"
+      });
+      return {
+        action: command,
+        succeeded: true,
+        message: isInfInstall ? "预览模式：已安装 INF 覆盖。" : "预览模式：已应用显示器身份覆盖。",
+        output: "仅预览",
+        pending_confirmation: pending
+      };
+    }
+
+    if (command === "monitor_identity_confirm_override") {
+      monitorIdentityPreviewStatus.pending_confirmation = null;
+      for (const change of monitorIdentityPreviewStatus.changes) {
+        if (change.rollback_token === args?.token) {
+          change.status = "confirmed";
+          change.confirmed_at = new Date().toISOString();
+        }
+      }
+      return {
+        action: "monitor_identity_confirm_override",
+        succeeded: true,
+        message: "预览模式：已保留显示器身份覆盖。",
+        output: "仅预览",
+        pending_confirmation: null
+      };
+    }
+
+    if (command === "monitor_identity_restore_change") {
+      monitorIdentityPreviewStatus.pending_confirmation = null;
+      for (const change of monitorIdentityPreviewStatus.changes) {
+        if (change.status !== "rolled_back") {
+          change.status = "rolled_back";
+          change.rolled_back_at = new Date().toISOString();
+          break;
+        }
+      }
+      return {
+        action: "monitor_identity_restore_change",
+        succeeded: true,
+        message: "预览模式：已还原显示器身份覆盖。",
+        output: "仅预览",
+        pending_confirmation: null
       };
     }
 
@@ -429,6 +555,24 @@ const gamingRestoreChangesButton = document.querySelector("#gamingRestoreChanges
 const gamingRefreshButton = document.querySelector("#gamingRefreshButton");
 const gamingBrowseGameButton = document.querySelector("#gamingBrowseGameButton");
 const gamingActionButtons = Array.from(document.querySelectorAll(".gaming-action-button"));
+const monitorIdentitySelect = document.querySelector("#monitorIdentitySelect");
+const monitorManufacturerInput = document.querySelector("#monitorManufacturerInput");
+const monitorProductInput = document.querySelector("#monitorProductInput");
+const monitorNumericSerialInput = document.querySelector("#monitorNumericSerialInput");
+const monitorSerialInput = document.querySelector("#monitorSerialInput");
+const monitorNameInput = document.querySelector("#monitorNameInput");
+const monitorIdentityApplyButton = document.querySelector("#monitorIdentityApplyButton");
+const monitorIdentityInstallInfButton = document.querySelector("#monitorIdentityInstallInfButton");
+const monitorIdentityRandomButton = document.querySelector("#monitorIdentityRandomButton");
+const monitorIdentityRefreshButton = document.querySelector("#monitorIdentityRefreshButton");
+const monitorIdentityConfirmButton = document.querySelector("#monitorIdentityConfirmButton");
+const monitorIdentityRollbackButton = document.querySelector("#monitorIdentityRollbackButton");
+const monitorIdentityMessageEl = document.querySelector("#monitorIdentityMessage");
+const monitorIdentityLogEl = document.querySelector("#monitorIdentityLog");
+const monitorIdentityCurrentEl = document.querySelector("#monitorIdentityCurrent");
+const monitorIdentityAdminStateEl = document.querySelector("#monitorIdentityAdminState");
+const monitorIdentityActiveStateEl = document.querySelector("#monitorIdentityActiveState");
+const monitorIdentityPendingStateEl = document.querySelector("#monitorIdentityPendingState");
 const dialogBackdrop = document.querySelector("#appDialog");
 const dialogAccent = document.querySelector("#dialogAccent");
 const dialogEyebrow = document.querySelector("#dialogEyebrow");
@@ -454,6 +598,14 @@ const gamingPanelButtons = [
   gamingRefreshButton,
   gamingBrowseGameButton,
   ...gamingActionButtons
+].filter(Boolean);
+const monitorIdentityPanelButtons = [
+  monitorIdentityApplyButton,
+  monitorIdentityInstallInfButton,
+  monitorIdentityRandomButton,
+  monitorIdentityRefreshButton,
+  monitorIdentityConfirmButton,
+  monitorIdentityRollbackButton
 ].filter(Boolean);
 
 function currentAppWindow() {
@@ -853,6 +1005,416 @@ async function initGamingOptimizerPanel() {
     gamingOptimizerInitPromise = null;
   });
   await gamingOptimizerInitPromise;
+}
+
+function monitorIdentityLabel(monitor) {
+  const identity = monitor?.current || monitor?.original || {};
+  const name = identity.monitor_name || monitor?.hardware_id || "显示器";
+  const hardware = identity.windows_hardware_id || monitor?.hardware_id || "-";
+  return `${name} (${hardware})${monitor?.override_present ? "（已覆盖）" : ""}`;
+}
+
+function selectedMonitorIdentity() {
+  const selectedId = monitorIdentitySelect?.value || "";
+  return (monitorIdentityStatus?.monitors || []).find(
+    (monitor) => monitor.device_instance_id === selectedId
+  );
+}
+
+function fillMonitorIdentityInputs(monitor = selectedMonitorIdentity()) {
+  const identity = monitor?.current || monitor?.original;
+  if (!identity) {
+    return;
+  }
+  if (monitorManufacturerInput) {
+    monitorManufacturerInput.value = identity.manufacturer_id || "";
+  }
+  if (monitorProductInput) {
+    monitorProductInput.value = identity.product_code_hex || "";
+  }
+  if (monitorNumericSerialInput) {
+    monitorNumericSerialInput.value =
+      identity.numeric_serial === null || identity.numeric_serial === undefined
+        ? ""
+        : String(identity.numeric_serial);
+  }
+  if (monitorSerialInput) {
+    monitorSerialInput.value = identity.serial_number || "";
+  }
+  if (monitorNameInput) {
+    monitorNameInput.value = identity.monitor_name || "";
+  }
+}
+
+function appendMonitorIdentityCell(parent, label, value) {
+  const cell = document.createElement("div");
+  const labelEl = document.createElement("span");
+  labelEl.textContent = label;
+  const valueEl = document.createElement("strong");
+  valueEl.textContent = value || "-";
+  cell.append(labelEl, valueEl);
+  parent.append(cell);
+}
+
+function renderMonitorIdentityCurrent(monitor = selectedMonitorIdentity()) {
+  if (!monitorIdentityCurrentEl) {
+    return;
+  }
+  monitorIdentityCurrentEl.innerHTML = "";
+  if (!monitor) {
+    appendMonitorIdentityCell(monitorIdentityCurrentEl, "状态", "未选择显示器");
+    return;
+  }
+  const identity = monitor.current || monitor.original || {};
+  const reported = monitor.windows_reported || {};
+  appendMonitorIdentityCell(monitorIdentityCurrentEl, "硬件 ID", identity.windows_hardware_id || monitor.hardware_id);
+  appendMonitorIdentityCell(monitorIdentityCurrentEl, "Windows 报告", reported.hardware_id || "-");
+  appendMonitorIdentityCell(monitorIdentityCurrentEl, "WMI 序列号", reported.serial_number);
+  appendMonitorIdentityCell(monitorIdentityCurrentEl, "序列号文本", identity.serial_number);
+  appendMonitorIdentityCell(monitorIdentityCurrentEl, "显示器名称", identity.monitor_name);
+  appendMonitorIdentityCell(monitorIdentityCurrentEl, "数字序列号", String(identity.numeric_serial ?? "-"));
+  appendMonitorIdentityCell(monitorIdentityCurrentEl, "EDID 校验", identity.checksum_valid ? "正常" : "无效");
+  appendMonitorIdentityCell(monitorIdentityCurrentEl, "覆盖状态", monitor.override_present ? "已启用" : "未覆盖");
+}
+
+function renderMonitorIdentityLog(changes = monitorIdentityStatus?.changes || []) {
+  if (!monitorIdentityLogEl) {
+    return;
+  }
+  monitorIdentityLogEl.innerHTML = "";
+  if (!Array.isArray(changes) || changes.length === 0) {
+    const empty = document.createElement("article");
+    const title = document.createElement("strong");
+    title.textContent = "没有覆盖记录";
+    const body = document.createElement("p");
+    body.textContent = "应用身份覆盖后，这里会显示可回滚记录。";
+    empty.append(title, body);
+    monitorIdentityLogEl.append(empty);
+    return;
+  }
+  for (const change of changes.slice(0, 5)) {
+    const item = document.createElement("article");
+    const title = document.createElement("strong");
+    const mode = change.apply_mode === "inf_driver" ? "INF" : "注册表";
+    title.textContent = `${change.status || "unknown"} · ${mode} · ${change.target_hardware_id || "-"}`;
+    const body = document.createElement("p");
+    body.textContent = `${change.monitor_device_instance_id || "-"} · ${change.applied_at || "-"}`;
+    const path = document.createElement("p");
+    path.textContent = change.published_driver_inf || change.generated_inf_path || change.output || "";
+    item.append(title, body, path);
+    monitorIdentityLogEl.append(item);
+  }
+}
+
+function startMonitorIdentityCountdown(pending) {
+  if (monitorIdentityCountdownTimer) {
+    window.clearInterval(monitorIdentityCountdownTimer);
+    monitorIdentityCountdownTimer = null;
+  }
+  const update = () => {
+    const expiresAt = Date.parse(pending?.expires_at || "");
+    const remaining = Number.isFinite(expiresAt)
+      ? Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000))
+      : Number(pending?.seconds_remaining || 0);
+    if (monitorIdentityPendingStateEl) {
+      monitorIdentityPendingStateEl.textContent = pending
+        ? `待确认：${remaining}s`
+        : "待确认：-";
+    }
+    if (monitorIdentityConfirmButton) {
+      monitorIdentityConfirmButton.disabled = !pending || remaining <= 0;
+    }
+    if (remaining <= 0 && monitorIdentityCountdownTimer) {
+      window.clearInterval(monitorIdentityCountdownTimer);
+      monitorIdentityCountdownTimer = null;
+      window.setTimeout(() => {
+        void refreshMonitorIdentityStatus();
+      }, 1200);
+    }
+  };
+  update();
+  if (pending) {
+    monitorIdentityCountdownTimer = window.setInterval(update, 1000);
+  }
+}
+
+function renderMonitorIdentityStatus(status = monitorIdentityStatus) {
+  monitorIdentityStatus = status;
+  if (!status) {
+    return;
+  }
+  if (monitorIdentityAdminStateEl) {
+    monitorIdentityAdminStateEl.textContent = `管理员：${status.is_administrator ? "是" : "否"}`;
+  }
+  if (monitorIdentityActiveStateEl) {
+    monitorIdentityActiveStateEl.textContent = `活动显示器：${status.active_monitor_count || 0}`;
+  }
+
+  const monitors = Array.isArray(status.monitors) ? status.monitors : [];
+  const previousSelection = monitorIdentitySelect?.value || "";
+  if (monitorIdentitySelect) {
+    monitorIdentitySelect.innerHTML = "";
+    for (const monitor of monitors) {
+      const option = document.createElement("option");
+      option.value = monitor.device_instance_id;
+      option.textContent = monitorIdentityLabel(monitor);
+      monitorIdentitySelect.append(option);
+    }
+    const nextSelection =
+      monitors.find((monitor) => monitor.device_instance_id === previousSelection)
+        ?.device_instance_id ||
+      monitors.find((monitor) => monitor.active)?.device_instance_id ||
+      monitors[0]?.device_instance_id ||
+      "";
+    monitorIdentitySelect.value = nextSelection;
+  }
+
+  const selected = selectedMonitorIdentity();
+  renderMonitorIdentityCurrent(selected);
+  fillMonitorIdentityInputs(selected);
+  renderMonitorIdentityLog(status.changes);
+  startMonitorIdentityCountdown(status.pending_confirmation);
+}
+
+async function refreshMonitorIdentityStatus() {
+  try {
+    const status = await invoke()("monitor_identity_get_status");
+    renderMonitorIdentityStatus(status);
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = "显示器身份状态已刷新。";
+    }
+  } catch (error) {
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = `读取显示器身份失败：${error}`;
+    }
+  }
+}
+
+async function initMonitorIdentityPanel() {
+  if (monitorIdentityStatus) {
+    return;
+  }
+  if (monitorIdentityInitPromise) {
+    await monitorIdentityInitPromise;
+    return;
+  }
+  monitorIdentityInitPromise = refreshMonitorIdentityStatus().finally(() => {
+    monitorIdentityInitPromise = null;
+  });
+  await monitorIdentityInitPromise;
+}
+
+function randomUint32() {
+  const cryptoApi = window.crypto || window.msCrypto;
+  if (cryptoApi?.getRandomValues) {
+    const value = new Uint32Array(1);
+    cryptoApi.getRandomValues(value);
+    return value[0] >>> 0;
+  }
+  return Math.floor(Math.random() * 0x100000000) >>> 0;
+}
+
+function randomInt(min, max) {
+  return min + (randomUint32() % (max - min + 1));
+}
+
+function randomLetters(length) {
+  return Array.from({ length }, () => String.fromCharCode(65 + randomInt(0, 25))).join("");
+}
+
+function randomHex(length) {
+  let value = "";
+  while (value.length < length) {
+    value += randomUint32().toString(16).toUpperCase().padStart(8, "0");
+  }
+  return value.slice(0, length);
+}
+
+function randomProductCode() {
+  return randomInt(1, 0xffff).toString(16).toUpperCase().padStart(4, "0");
+}
+
+function randomSerialText() {
+  return `SN${randomHex(10)}`.slice(0, 13);
+}
+
+function randomMonitorName() {
+  return `DSP-${randomHex(8)}`.slice(0, 13);
+}
+
+function randomizeMonitorIdentityFields() {
+  if (monitorManufacturerInput) {
+    monitorManufacturerInput.value = randomLetters(3);
+  }
+  if (monitorProductInput) {
+    monitorProductInput.value = randomProductCode();
+  }
+  if (monitorNumericSerialInput) {
+    monitorNumericSerialInput.value = String(randomInt(1, 0xffffffff));
+  }
+  if (monitorSerialInput) {
+    monitorSerialInput.value = randomSerialText();
+  }
+  if (monitorNameInput) {
+    monitorNameInput.value = randomMonitorName();
+  }
+  if (monitorIdentityMessageEl) {
+    monitorIdentityMessageEl.textContent = "已随机生成显示器身份字段；尚未写入系统。";
+  }
+}
+
+function readMonitorIdentityRequest() {
+  const monitor = selectedMonitorIdentity();
+  if (!monitor) {
+    throw new Error("请选择一个显示器。");
+  }
+  const manufacturerId = String(monitorManufacturerInput?.value || "").trim().toUpperCase();
+  const productCode = String(monitorProductInput?.value || "").trim().toUpperCase();
+  const numericText = String(monitorNumericSerialInput?.value || "").trim();
+  const numericSerial = numericText === "" ? null : Number.parseInt(numericText, 10);
+  if (!/^[A-Z]{3}$/.test(manufacturerId)) {
+    throw new Error("Manufacturer ID 必须是 3 个英文字母。");
+  }
+  if (!/^[0-9A-F]{1,4}$/.test(productCode)) {
+    throw new Error("Product Code 必须是 1-4 位十六进制。");
+  }
+  if (numericSerial !== null && (!Number.isFinite(numericSerial) || numericSerial < 0 || numericSerial > 4294967295)) {
+    throw new Error("Numeric serial 必须在 0 到 4294967295 之间。");
+  }
+  return {
+    monitor_device_instance_id: monitor.device_instance_id,
+    manufacturer_id: manufacturerId,
+    product_code_hex: productCode.padStart(4, "0"),
+    numeric_serial: numericSerial,
+    serial_number: String(monitorSerialInput?.value || "").trim() || null,
+    monitor_name: String(monitorNameInput?.value || "").trim() || null,
+    rollback_timeout_secs: 30
+  };
+}
+
+async function applyMonitorIdentityOverride(mode = "registry") {
+  let request;
+  try {
+    request = readMonitorIdentityRequest();
+  } catch (error) {
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = `输入无效：${error.message || error}`;
+    }
+    return;
+  }
+
+  const isInfInstall = mode === "inf";
+  const confirmed = await confirmDialog({
+    variant: "danger",
+    eyebrow: isInfInstall ? "Monitor INF 覆盖" : "EDID 身份覆盖",
+    title: isInfInstall ? "确认安装显示器 INF 覆盖？" : "确认修改显示器身份？",
+    body: isInfInstall
+      ? "程序会生成并安装显示器 INF 覆盖驱动，同时写入 Windows 的 EDID_OVERRIDE；不写入显示器 EEPROM。应用后必须在 30 秒内点击保留更改，否则后台保护进程会自动回滚。"
+      : "程序会写入 Windows 的 EDID_OVERRIDE，不写入显示器 EEPROM。应用后必须在 30 秒内点击保留更改，否则后台保护进程会自动回滚。",
+    riskItems: isInfInstall
+      ? [
+          "会调用 pnputil /add-driver /install 安装本次生成的 monitor INF，并记录发布出来的 oem*.inf 以便回滚。",
+          "显示器可能短暂闪屏或黑屏；如果无法确认，30 秒后会恢复上一个 EDID_OVERRIDE 并卸载本次发布的驱动包。",
+          "Windows 11 驱动签名策略可能拒绝未签名 INF；这种情况下程序会恢复已写入的覆盖并报告 pnputil 输出。",
+          "直接绕过 Windows 读取显示器 EEPROM 的工具仍可能看到原始身份。"
+        ]
+      : [
+          "厂商 ID（Manufacturer）和产品码（Product Code）会改变 Windows 读取到的显示器身份。",
+          "如果显示异常且无法确认，30 秒后会自动恢复上一个 EDID_OVERRIDE 状态。",
+          "直接绕过 Windows 读取显示器 EEPROM 的工具仍可能看到原始身份。"
+        ],
+    requireAcknowledge: true,
+    details: request.monitor_device_instance_id,
+    confirmText: isInfInstall ? "安装并启动回滚计时" : "应用并启动回滚计时"
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+  if (monitorIdentityMessageEl) {
+    monitorIdentityMessageEl.textContent = isInfInstall
+      ? "正在安装显示器 INF 覆盖..."
+      : "正在应用 EDID 身份覆盖...";
+  }
+  try {
+    await waitForNextPaint();
+    const command = isInfInstall ? "monitor_identity_install_inf_override" : "monitor_identity_apply_override";
+    const result = await invoke()(command, { request });
+    await refreshMonitorIdentityStatus();
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = result.message || "已应用，等待 30 秒确认。";
+    }
+  } catch (error) {
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = `应用显示器身份失败：${error}`;
+    }
+  } finally {
+    setBusy(false);
+  }
+}
+
+function installMonitorIdentityInfOverride() {
+  void applyMonitorIdentityOverride("inf");
+}
+
+async function confirmMonitorIdentityOverride() {
+  const pending = monitorIdentityStatus?.pending_confirmation;
+  if (!pending) {
+    return;
+  }
+  setBusy(true);
+  try {
+    await waitForNextPaint();
+    const result = await invoke()("monitor_identity_confirm_override", { token: pending.token });
+    await refreshMonitorIdentityStatus();
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = result.message || "已保留显示器身份覆盖。";
+    }
+  } catch (error) {
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = `确认失败：${error}`;
+    }
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function restoreMonitorIdentityOverride() {
+  const pending = monitorIdentityStatus?.pending_confirmation;
+  const confirmed = await confirmDialog({
+    variant: "danger",
+    eyebrow: "EDID 身份覆盖",
+    title: "还原显示器身份覆盖？",
+    body: "程序会按变更记录恢复上一个 EDID_OVERRIDE 状态，并重扫显示设备。",
+    riskItems: ["只还原本程序记录的覆盖；其它工具未记录的修改不会被猜测覆盖。"],
+    requireAcknowledge: true,
+    confirmText: "还原覆盖"
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+  if (monitorIdentityMessageEl) {
+    monitorIdentityMessageEl.textContent = "正在还原显示器身份覆盖...";
+  }
+  try {
+    await waitForNextPaint();
+    const result = await invoke()("monitor_identity_restore_change", {
+      changeId: pending?.change_id || null
+    });
+    await refreshMonitorIdentityStatus();
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = result.message || "已还原显示器身份覆盖。";
+    }
+  } catch (error) {
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = `还原失败：${error}`;
+    }
+  } finally {
+    setBusy(false);
+  }
 }
 
 function applyTheme(theme, persist = false) {
@@ -1570,6 +2132,9 @@ function switchView(view) {
   if (view === "gaming" && !gamingOptimizerStatus) {
     void initGamingOptimizerPanel();
   }
+  if (view === "monitorIdentity" && !monitorIdentityStatus) {
+    void initMonitorIdentityPanel();
+  }
 }
 
 function renderStatus(items) {
@@ -1980,6 +2545,26 @@ function setBusy(isBusy) {
   for (const button of gamingPanelButtons) {
     button.disabled = isBusy;
   }
+  for (const button of monitorIdentityPanelButtons) {
+    button.disabled = isBusy;
+  }
+  if (monitorIdentityConfirmButton) {
+    monitorIdentityConfirmButton.disabled = isBusy || !monitorIdentityStatus?.pending_confirmation;
+  }
+  if (monitorIdentitySelect) {
+    monitorIdentitySelect.disabled = isBusy;
+  }
+  for (const input of [
+    monitorManufacturerInput,
+    monitorProductInput,
+    monitorNumericSerialInput,
+    monitorSerialInput,
+    monitorNameInput
+  ]) {
+    if (input) {
+      input.disabled = isBusy;
+    }
+  }
   for (const button of formulaOptionButtons) {
     button.disabled = isBusy;
   }
@@ -2286,6 +2871,17 @@ gamingBrowseGameButton?.addEventListener("click", browseGamingGameExe);
 for (const button of gamingActionButtons) {
   button.addEventListener("click", () => runGamingAction(button.dataset.gamingAction));
 }
+monitorIdentitySelect?.addEventListener("change", () => {
+  const selected = selectedMonitorIdentity();
+  renderMonitorIdentityCurrent(selected);
+  fillMonitorIdentityInputs(selected);
+});
+monitorIdentityRandomButton?.addEventListener("click", randomizeMonitorIdentityFields);
+monitorIdentityRefreshButton?.addEventListener("click", refreshMonitorIdentityStatus);
+monitorIdentityApplyButton?.addEventListener("click", () => applyMonitorIdentityOverride("registry"));
+monitorIdentityInstallInfButton?.addEventListener("click", installMonitorIdentityInfOverride);
+monitorIdentityConfirmButton?.addEventListener("click", confirmMonitorIdentityOverride);
+monitorIdentityRollbackButton?.addEventListener("click", restoreMonitorIdentityOverride);
 
 applyCustomPagefileButton?.addEventListener("click", async () => {
   const formula = selectedFormulaFor(latestReport?.virtual_memory || {});

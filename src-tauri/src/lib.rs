@@ -1,5 +1,6 @@
 mod checks;
 mod gaming_optimizer;
+mod monitor_identity;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -18,7 +19,12 @@ pub fn run() {
             checks::open_bluescreenview,
             checks::export_bluescreen_report,
             checks::restore_initial_config,
-            checks::restart_to_firmware
+            checks::restart_to_firmware,
+            monitor_identity::monitor_identity_get_status,
+            monitor_identity::monitor_identity_apply_override,
+            monitor_identity::monitor_identity_install_inf_override,
+            monitor_identity::monitor_identity_confirm_override,
+            monitor_identity::monitor_identity_restore_change
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

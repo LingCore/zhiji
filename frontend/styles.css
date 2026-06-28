@@ -77,7 +77,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -115,7 +116,8 @@ button:not(:disabled):active {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.22);
   outline: 0;
 }
@@ -1641,6 +1643,109 @@ h2 {
   line-height: 1.4;
 }
 
+.monitor-identity-layout {
+  display: grid;
+  gap: var(--module-gap);
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+}
+
+.monitor-identity-hero,
+.monitor-identity-editor {
+  grid-column: 1 / -1;
+}
+
+.monitor-identity-select,
+.monitor-identity-input-grid label {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.monitor-identity-select span,
+.monitor-identity-input-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.monitor-identity-select select,
+.monitor-identity-input-grid input {
+  background: #111111;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  height: 36px;
+  min-width: 0;
+  padding: 0 var(--space-5);
+}
+
+.monitor-identity-current {
+  background: #141414;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  color: var(--muted-strong);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: var(--module-padding-sm) 0;
+  padding: var(--module-padding-sm);
+}
+
+.monitor-identity-current div,
+.monitor-identity-log article {
+  min-width: 0;
+}
+
+.monitor-identity-current span,
+.monitor-identity-log span {
+  color: var(--muted);
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: var(--space-1);
+}
+
+.monitor-identity-current strong,
+.monitor-identity-log strong {
+  color: var(--text);
+  display: block;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-identity-input-grid {
+  display: grid;
+  gap: var(--module-padding-sm);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.monitor-identity-input-grid .wide {
+  grid-column: span 2;
+}
+
+.monitor-identity-log {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.monitor-identity-log article {
+  background: #141414;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+}
+
+.monitor-identity-log p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .vm-actions,
 .bsod-actions {
   display: grid;
@@ -2052,7 +2157,9 @@ h2 {
 
 :root[data-theme="light"] .gaming-check,
 :root[data-theme="light"] .gaming-game-path,
-:root[data-theme="light"] .gaming-manual-list article {
+:root[data-theme="light"] .gaming-manual-list article,
+:root[data-theme="light"] .monitor-identity-current,
+:root[data-theme="light"] .monitor-identity-log article {
   background: #ffffff;
   border-color: #e4e4e7;
 }
@@ -2130,6 +2237,8 @@ h2 {
 :root[data-theme="light"] .vm-current-grid > div,
 :root[data-theme="light"] .formula-option,
 :root[data-theme="light"] .vm-input-grid input,
+:root[data-theme="light"] .monitor-identity-select select,
+:root[data-theme="light"] .monitor-identity-input-grid input,
 :root[data-theme="light"] .search-box input,
 :root[data-theme="light"] .segmented,
 :root[data-theme="light"] .dialog-details,
@@ -2406,7 +2515,10 @@ h2 {
   }
 
   .vm-layout,
-  .bsod-layout {
+  .bsod-layout,
+  .monitor-identity-layout,
+  .monitor-identity-current,
+  .monitor-identity-input-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -2498,7 +2610,9 @@ h2 {
   .gaming-actions-row,
   .gaming-actions-row.two,
   .gaming-actions-row.single,
-  .gaming-card-actions {
+  .gaming-card-actions,
+  .monitor-identity-input-grid .wide {
     grid-template-columns: 1fr;
+    grid-column: auto;
   }
 }

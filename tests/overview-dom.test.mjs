@@ -141,7 +141,8 @@ check("Phosphor 图标以本地 SVG sprite 接入关键导航和操作区", () =
     "ph-sun",
     "ph-arrows-clockwise",
     "ph-arrow-counter-clockwise",
-    "ph-shield-check"
+    "ph-shield-check",
+    "ph-hard-drives"
   ]) {
     assert.ok(document.getElementById(id), `缺少 Phosphor symbol: ${id}`);
   }
@@ -154,6 +155,7 @@ check("Phosphor 图标以本地 SVG sprite 接入关键导航和操作区", () =
       "#ph-sliders-horizontal",
       "#ph-memory",
       "#ph-gear-six",
+      "#ph-hard-drives",
       "#ph-warning-octagon",
       "#ph-list-checks",
       "#ph-cpu"
@@ -798,6 +800,94 @@ await checkAsync("高风险操作弹窗必须展示后果清单并勾选确认",
   document.getElementById("dialogCancel").click();
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(dialog.classList.contains("open"), false, "取消后弹窗应关闭");
+});
+
+check("显示器身份面板包含 EDID override 和 30 秒自动回滚控制", () => {
+  const pane = document.getElementById("monitorIdentityPane");
+  assert.ok(pane, "应存在显示器身份面板");
+  assert.ok(document.querySelector('[data-view="monitorIdentity"]'), "应有显示器身份导航入口");
+  assert.ok(document.getElementById("monitorIdentitySelect"), "应有显示器选择器");
+  assert.ok(document.getElementById("monitorManufacturerInput"), "应有 Manufacturer ID 输入");
+  assert.ok(document.getElementById("monitorProductInput"), "应有 Product Code 输入");
+  assert.ok(document.getElementById("monitorIdentityApplyButton"), "应有应用覆盖按钮");
+  assert.ok(document.getElementById("monitorIdentityInstallInfButton"), "应有安装 INF 覆盖按钮");
+  assert.ok(document.getElementById("monitorIdentityConfirmButton"), "应有保留更改按钮");
+  assert.ok(document.getElementById("monitorIdentityRollbackButton"), "应有回滚按钮");
+  assert.equal(pane.textContent.includes("30 秒自动回滚"), true);
+  assert.ok(js.includes("monitor_identity_apply_override"), "前端应调用显示器身份应用命令");
+  assert.ok(js.includes("monitor_identity_install_inf_override"), "前端应调用显示器身份 INF 安装命令");
+  assert.ok(js.includes("monitor_identity_confirm_override"), "前端应调用显示器身份确认命令");
+  assert.ok(js.includes("monitor_identity_restore_change"), "前端应调用显示器身份还原命令");
+});
+
+await checkAsync("显示器身份预览应用后进入待确认并可保留", async () => {
+  document.querySelector('[data-view="monitorIdentity"]').click();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  assert.equal(document.getElementById("monitorIdentitySelect").options.length, 1);
+  assert.equal(document.getElementById("monitorManufacturerInput").value, "LHC");
+  assert.equal(document.getElementById("monitorProductInput").value, "906A");
+
+  document.getElementById("monitorManufacturerInput").value = "DEL";
+  document.getElementById("monitorProductInput").value = "A123";
+  document.getElementById("monitorSerialInput").value = "SN123456";
+  document.getElementById("monitorNameInput").value = "FAKE PANEL";
+  document.getElementById("monitorIdentityApplyButton").click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const acknowledge = document.getElementById("dialogAcknowledge");
+  acknowledge.checked = true;
+  acknowledge.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  document.getElementById("dialogConfirm").click();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.match(document.getElementById("monitorIdentityPendingState").textContent, /待确认：\d+s/);
+  assert.equal(document.getElementById("monitorIdentityConfirmButton").disabled, false);
+
+  document.getElementById("monitorIdentityConfirmButton").click();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(document.getElementById("monitorIdentityConfirmButton").disabled, true);
+});
+
+await checkAsync("显示器身份 INF 预览安装后进入待确认并记录驱动包", async () => {
+  document.querySelector('[data-view="monitorIdentity"]').click();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  document.getElementById("monitorManufacturerInput").value = "BUX";
+  document.getElementById("monitorProductInput").value = "0F04";
+  document.getElementById("monitorSerialInput").value = "SN22A7F2E5D4";
+  document.getElementById("monitorNameInput").value = "DSP-E70E077D";
+  document.getElementById("monitorIdentityInstallInfButton").click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(document.getElementById("dialogTitle").textContent, "确认安装显示器 INF 覆盖？");
+  const acknowledge = document.getElementById("dialogAcknowledge");
+  acknowledge.checked = true;
+  acknowledge.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  document.getElementById("dialogConfirm").click();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.match(document.getElementById("monitorIdentityPendingState").textContent, /待确认：\d+s/);
+  assert.equal(document.getElementById("monitorIdentityLog").textContent.includes("INF"), true);
+  assert.equal(document.getElementById("monitorIdentityLog").textContent.includes("oem42.inf"), true);
+
+  document.getElementById("monitorIdentityConfirmButton").click();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+});
+
+await checkAsync("显示器身份一键随机只填字段且不立即写入系统", async () => {
+  document.querySelector('[data-view="monitorIdentity"]').click();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  assert.ok(document.getElementById("monitorIdentityRandomButton"), "应有一键随机按钮");
+  document.getElementById("monitorIdentityRandomButton").click();
+
+  assert.match(document.getElementById("monitorManufacturerInput").value, /^[A-Z]{3}$/);
+  assert.match(document.getElementById("monitorProductInput").value, /^[0-9A-F]{4}$/);
+  assert.ok(Number(document.getElementById("monitorNumericSerialInput").value) >= 1);
+  assert.match(document.getElementById("monitorSerialInput").value, /^SN[0-9A-F]{1,11}$/);
+  assert.match(document.getElementById("monitorNameInput").value, /^DSP-[0-9A-F]{1,8}$/);
+  assert.equal(document.getElementById("monitorIdentityMessage").textContent.includes("尚未写入系统"), true);
 });
 
 if (failures.length > 0) {

@@ -120,6 +120,12 @@
           </button>
 
           <p class="nav-section-label">诊断</p>
+          <button class="nav-item" data-view="monitorIdentity" type="button">
+            <span class="nav-code" aria-hidden="true">
+              <svg class="ph-icon"><use href="#ph-hard-drives"></use></svg>
+            </span>
+            <span>显示器身份</span>
+          </button>
           <button class="nav-item" data-view="bsod" type="button">
             <span class="nav-code" aria-hidden="true">
               <svg class="ph-icon"><use href="#ph-warning-octagon"></use></svg>
@@ -520,6 +526,84 @@
                   <span>HPET、Timer Resolution、网络 tweaks、Core Isolation 不自动应用。</span>
                 </article>
               </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="pane" id="monitorIdentityPane" data-pane="monitorIdentity">
+          <div class="monitor-identity-layout">
+            <section class="panel monitor-identity-hero">
+              <div class="section-title-with-icon">
+                <span class="section-icon" aria-hidden="true">
+                  <svg class="ph-icon"><use href="#ph-hard-drives"></use></svg>
+                </span>
+                <div>
+                  <p class="label">EDID 身份覆盖</p>
+                  <h2>显示器身份覆盖</h2>
+                  <p class="subtle">修改 Windows 读取到的厂商 ID、产品码、序列号和显示器名称；不写入显示器 EEPROM。</p>
+                </div>
+              </div>
+              <div class="gaming-status-strip">
+                <span id="monitorIdentityAdminState" class="meta-chip">管理员：-</span>
+                <span id="monitorIdentityActiveState" class="meta-chip">活动显示器：-</span>
+                <span id="monitorIdentityPendingState" class="meta-chip">待确认：-</span>
+              </div>
+            </section>
+
+            <section class="panel monitor-identity-editor">
+              <div class="section-head">
+                <div>
+                  <p class="label">目标显示器</p>
+                  <h2>身份字段</h2>
+                </div>
+                <span class="status-pill state-unknown">30 秒自动回滚</span>
+              </div>
+              <label class="monitor-identity-select">
+                <span>显示器</span>
+                <select id="monitorIdentitySelect"></select>
+              </label>
+              <div id="monitorIdentityCurrent" class="monitor-identity-current"></div>
+              <div class="monitor-identity-input-grid">
+                <label>
+                  <span>厂商 ID（Manufacturer）</span>
+                  <input id="monitorManufacturerInput" maxlength="3" spellcheck="false" placeholder="DEL" />
+                </label>
+                <label>
+                  <span>产品码（Product Code）</span>
+                  <input id="monitorProductInput" maxlength="4" spellcheck="false" placeholder="A123" />
+                </label>
+                <label>
+                  <span>数字序列号</span>
+                  <input id="monitorNumericSerialInput" type="number" min="0" max="4294967295" step="1" placeholder="123456" />
+                </label>
+                <label>
+                  <span>序列号文本</span>
+                  <input id="monitorSerialInput" maxlength="13" spellcheck="false" placeholder="SN123456" />
+                </label>
+                <label class="wide">
+                  <span>显示器名称</span>
+                  <input id="monitorNameInput" maxlength="13" spellcheck="false" placeholder="P2710V MAX" />
+                </label>
+              </div>
+              <div class="gaming-actions-row two">
+                <button id="monitorIdentityApplyButton" class="primary-button" type="button">应用身份覆盖</button>
+                <button id="monitorIdentityInstallInfButton" class="primary-button" type="button">安装 INF 覆盖</button>
+                <button id="monitorIdentityRandomButton" class="secondary-button" type="button">一键随机</button>
+                <button id="monitorIdentityRefreshButton" class="secondary-button" type="button">刷新显示器</button>
+                <button id="monitorIdentityConfirmButton" class="primary-button" type="button" disabled>保留更改</button>
+                <button id="monitorIdentityRollbackButton" class="restore-button" type="button">还原上次覆盖</button>
+              </div>
+              <p id="monitorIdentityMessage" class="message detail-message">进入面板后读取显示器状态。</p>
+            </section>
+
+            <section class="panel monitor-identity-log-panel">
+              <div class="section-head">
+                <div>
+                  <p class="label">变更记录</p>
+                  <h2>最近的覆盖和回滚</h2>
+                </div>
+              </div>
+              <div id="monitorIdentityLog" class="monitor-identity-log"></div>
             </section>
           </div>
         </section>
