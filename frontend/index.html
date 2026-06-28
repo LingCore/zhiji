@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PC Requirements Checker</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <svg class="icon-sprite" aria-hidden="true" focusable="false">
+      <symbol id="ph-gauge" viewBox="0 0 256 256">
+        <path d="M207.06,72.67A111.24,111.24,0,0,0,128,40h-.4C66.07,40.21,16,91,16,153.13V176a16,16,0,0,0,16,16H224a16,16,0,0,0,16-16V152A111.25,111.25,0,0,0,207.06,72.67ZM224,176H119.71l54.76-75.3a8,8,0,0,0-12.94-9.42L99.92,176H32V153.13c0-3.08.15-6.12.43-9.13H56a8,8,0,0,0,0-16H35.27c10.32-38.86,44-68.24,84.73-71.66V80a8,8,0,0,0,16,0V56.33A96.14,96.14,0,0,1,221,128H200a8,8,0,0,0,0,16h23.67c.21,2.65.33,5.31.33,8Z" />
+      </symbol>
+      <symbol id="ph-sliders-horizontal" viewBox="0 0 256 256">
+        <path d="M40,88H73a32,32,0,0,0,62,0h81a8,8,0,0,0,0-16H135a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16Zm64-24A16,16,0,1,1,88,80,16,16,0,0,1,104,64ZM216,168H199a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16h97a32,32,0,0,0,62,0h17a8,8,0,0,0,0-16Zm-48,24a16,16,0,1,1,16-16A16,16,0,0,1,168,192Z" />
+      </symbol>
+      <symbol id="ph-memory" viewBox="0 0 256 256">
+        <path d="M232,56H24A16,16,0,0,0,8,72V200a8,8,0,0,0,16,0V184H40v16a8,8,0,0,0,16,0V184H72v16a8,8,0,0,0,16,0V184h16v16a8,8,0,0,0,16,0V184h16v16a8,8,0,0,0,16,0V184h16v16a8,8,0,0,0,16,0V184h16v16a8,8,0,0,0,16,0V184h16v16a8,8,0,0,0,16,0V72A16,16,0,0,0,232,56ZM24,72H232v96H24Zm88,80a8,8,0,0,0,8-8V96a8,8,0,0,0-8-8H48a8,8,0,0,0-8,8v48a8,8,0,0,0,8,8ZM56,104h48v32H56Zm88,48h64a8,8,0,0,0,8-8V96a8,8,0,0,0-8-8H144a8,8,0,0,0-8,8v48A8,8,0,0,0,144,152Zm8-48h48v32H152Z" />
+      </symbol>
+      <symbol id="ph-warning-octagon" viewBox="0 0 256 256">
+        <path d="M120,136V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0ZM232,91.55v72.9a15.86,15.86,0,0,1-4.69,11.31l-51.55,51.55A15.86,15.86,0,0,1,164.45,232H91.55a15.86,15.86,0,0,1-11.31-4.69L28.69,175.76A15.86,15.86,0,0,1,24,164.45V91.55a15.86,15.86,0,0,1,4.69-11.31L80.24,28.69A15.86,15.86,0,0,1,91.55,24h72.9a15.86,15.86,0,0,1,11.31,4.69l51.55,51.55A15.86,15.86,0,0,1,232,91.55Zm-16,0L164.45,40H91.55L40,91.55v72.9L91.55,216h72.9L216,164.45ZM128,160a12,12,0,1,0,12,12A12,12,0,0,0,128,160Z" />
+      </symbol>
+      <symbol id="ph-list-checks" viewBox="0 0 256 256">
+        <path d="M224,128a8,8,0,0,1-8,8H128a8,8,0,0,1,0-16h88A8,8,0,0,1,224,128ZM128,72h88a8,8,0,0,0,0-16H128a8,8,0,0,0,0,16Zm88,112H128a8,8,0,0,0,0,16h88a8,8,0,0,0,0-16ZM82.34,42.34,56,68.69,45.66,58.34A8,8,0,0,0,34.34,69.66l16,16a8,8,0,0,0,11.32,0l32-32A8,8,0,0,0,82.34,42.34Zm0,64L56,132.69,45.66,122.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Zm0,64L56,196.69,45.66,186.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Z" />
+      </symbol>
+      <symbol id="ph-cpu" viewBox="0 0 256 256">
+        <path d="M152,96H104a8,8,0,0,0-8,8v48a8,8,0,0,0,8,8h48a8,8,0,0,0,8-8V104A8,8,0,0,0,152,96Zm-8,48H112V112h32Zm88,0H216V112h16a8,8,0,0,0,0-16H216V56a16,16,0,0,0-16-16H160V24a8,8,0,0,0-16,0V40H112V24a8,8,0,0,0-16,0V40H56A16,16,0,0,0,40,56V96H24a8,8,0,0,0,0,16H40v32H24a8,8,0,0,0,0,16H40v40a16,16,0,0,0,16,16H96v16a8,8,0,0,0,16,0V216h32v16a8,8,0,0,0,16,0V216h40a16,16,0,0,0,16-16V160h16a8,8,0,0,0,0-16Zm-32,56H56V56H200v95.87s0,.09,0,.13,0,.09,0,.13V200Z" />
+      </symbol>
+      <symbol id="ph-magnifying-glass" viewBox="0 0 256 256">
+        <path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z" />
+      </symbol>
+      <symbol id="ph-moon" viewBox="0 0 256 256">
+        <path d="M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.09,103.09,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23ZM188.9,190.34A88,88,0,0,1,65.66,67.11a89,89,0,0,1,31.4-26A106,106,0,0,0,96,56,104.11,104.11,0,0,0,200,160a106,106,0,0,0,14.92-1.06A89,89,0,0,1,188.9,190.34Z" />
+      </symbol>
+      <symbol id="ph-sun" viewBox="0 0 256 256">
+        <path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z" />
+      </symbol>
+      <symbol id="ph-arrows-clockwise" viewBox="0 0 256 256">
+        <path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z" />
+      </symbol>
+      <symbol id="ph-arrow-counter-clockwise" viewBox="0 0 256 256">
+        <path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z" />
+      </symbol>
+      <symbol id="ph-shield-check" viewBox="0 0 256 256">
+        <path d="M208,40H48A16,16,0,0,0,32,56v56c0,52.72,25.52,84.67,46.93,102.19,23.06,18.86,46,25.26,47,25.53a8,8,0,0,0,4.2,0c1-.27,23.91-6.67,47-25.53C198.48,196.67,224,164.72,224,112V56A16,16,0,0,0,208,40Zm0,72c0,37.07-13.66,67.16-40.6,89.42A129.3,129.3,0,0,1,128,223.62a128.25,128.25,0,0,1-38.92-21.81C61.82,179.51,48,149.3,48,112l0-56,160,0ZM82.34,141.66a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32l-56,56a8,8,0,0,1-11.32,0Z" />
+      </symbol>
+      <symbol id="ph-database" viewBox="0 0 256 256">
+        <path d="M128,24C74.17,24,32,48.6,32,80v96c0,31.4,42.17,56,96,56s96-24.6,96-56V80C224,48.6,181.83,24,128,24Zm80,104c0,9.62-7.88,19.43-21.61,26.92C170.93,163.35,150.19,168,128,168s-42.93-4.65-58.39-13.08C55.88,147.43,48,137.62,48,128V111.36c17.06,15,46.23,24.64,80,24.64s62.94-9.68,80-24.64ZM69.61,53.08C85.07,44.65,105.81,40,128,40s42.93,4.65,58.39,13.08C200.12,60.57,208,70.38,208,80s-7.88,19.43-21.61,26.92C170.93,115.35,150.19,120,128,120s-42.93-4.65-58.39-13.08C55.88,99.43,48,89.62,48,80S55.88,60.57,69.61,53.08ZM186.39,202.92C170.93,211.35,150.19,216,128,216s-42.93-4.65-58.39-13.08C55.88,195.43,48,185.62,48,176V159.36c17.06,15,46.23,24.64,80,24.64s62.94-9.68,80-24.64V176C208,185.62,200.12,195.43,186.39,202.92Z" />
+      </symbol>
+      <symbol id="ph-hard-drives" viewBox="0 0 256 256">
+        <path d="M208,136H48a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V152A16,16,0,0,0,208,136Zm0,64H48V152H208v48Zm0-160H48A16,16,0,0,0,32,56v48a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V56A16,16,0,0,0,208,40Zm0,64H48V56H208v48ZM192,80a12,12,0,1,1-12-12A12,12,0,0,1,192,80Zm0,96a12,12,0,1,1-12-12A12,12,0,0,1,192,176Z" />
+      </symbol>
+      <symbol id="ph-warning-circle" viewBox="0 0 256 256">
+        <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,172Z" />
+      </symbol>
+      <symbol id="ph-gear-six" viewBox="0 0 256 256">
+        <path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z" />
+      </symbol>
+    </svg>
+    <div id="appTitlebar" class="titlebar" data-tauri-drag-region>
+      <div class="titlebar-left" data-tauri-drag-region>
+        <span class="titlebar-mark" aria-hidden="true">
+          <svg class="ph-icon titlebar-mark-icon"><use href="#ph-cpu"></use></svg>
+        </span>
+        <span class="titlebar-copy" data-tauri-drag-region>
+          <span class="titlebar-title">PC Requirements Checker</span>
+          <span class="titlebar-subtitle">Windows 诊断控制台</span>
+        </span>
+        <span class="titlebar-pill">Tauri / Rust</span>
+      </div>
+      <div class="titlebar-status" data-tauri-drag-region>
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="message" class="message titlebar-message" role="status">准备读取状态</span>
+      </div>
+      <div class="titlebar-controls" aria-label="窗口控制">
+        <button id="windowMinimizeButton" class="titlebar-button" type="button" aria-label="最小化窗口" title="最小化窗口">
+          <span class="window-icon window-icon-minimize" aria-hidden="true"></span>
+        </button>
+        <button id="windowMaximizeButton" class="titlebar-button" type="button" aria-label="最大化窗口" title="最大化窗口">
+          <span id="windowMaximizeIcon" class="window-icon window-icon-maximize" aria-hidden="true"></span>
+        </button>
+        <button id="windowCloseButton" class="titlebar-button close" type="button" aria-label="关闭窗口" title="关闭窗口">
+          <span class="window-icon window-icon-close" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="主导航">
+        <div class="sidebar-system">
+          <span id="adminStatus" class="meta-chip">管理员：-</span>
+        </div>
+
+        <nav class="nav-list">
+          <p class="nav-section-label">总览</p>
+          <button class="nav-item active" data-view="overview" type="button">
+            <span class="nav-code" aria-hidden="true">
+              <svg class="ph-icon"><use href="#ph-gauge"></use></svg>
+            </span>
+            <span>概览</span>
+          </button>
+
+          <p class="nav-section-label">控制</p>
+          <button class="nav-item" data-view="controls" type="button">
+            <span class="nav-code" aria-hidden="true">
+              <svg class="ph-icon"><use href="#ph-sliders-horizontal"></use></svg>
+            </span>
+            <span>快速控制</span>
+          </button>
+          <button class="nav-item" data-view="memory" type="button">
+            <span class="nav-code" aria-hidden="true">
+              <svg class="ph-icon"><use href="#ph-memory"></use></svg>
+            </span>
+            <span>虚拟内存</span>
+          </button>
+          <button class="nav-item" data-view="gaming" type="button">
+            <span class="nav-code" aria-hidden="true">
+              <svg class="ph-icon"><use href="#ph-gear-six"></use></svg>
+            </span>
+            <span>竞技模式</span>
+          </button>
+
+          <p class="nav-section-label">诊断</p>
+          <button class="nav-item" data-view="bsod" type="button">
+            <span class="nav-code" aria-hidden="true">
+              <svg class="ph-icon"><use href="#ph-warning-octagon"></use></svg>
+            </span>
+            <span>蓝屏分析</span>
+          </button>
+          <button class="nav-item" data-view="checks" type="button">
+            <span class="nav-code" aria-hidden="true">
+              <svg class="ph-icon"><use href="#ph-list-checks"></use></svg>
+            </span>
+            <span>状态明细</span>
+          </button>
+          <button class="nav-item" data-view="hardware" type="button">
+            <span class="nav-code" aria-hidden="true">
+              <svg class="ph-icon"><use href="#ph-cpu"></use></svg>
+            </span>
+            <span>硬件信息</span>
+          </button>
+        </nav>
+      </aside>
+
+      <section class="workspace">
+        <header class="workspace-header">
+          <div class="workspace-title-block">
+            <p id="viewEyebrow" class="eyebrow">Overview</p>
+            <h1 id="viewTitle">概览</h1>
+          </div>
+          <div class="header-actions" aria-label="全局操作">
+            <label class="search-box">
+              <span class="sr-only">搜索设置</span>
+              <svg class="ph-icon search-icon" aria-hidden="true"><use href="#ph-magnifying-glass"></use></svg>
+              <input type="search" placeholder="搜索设置、状态或路径" />
+            </label>
+            <button id="themeToggleButton" class="theme-toggle-button" type="button" aria-pressed="true">
+              <svg id="themeToggleIcon" class="ph-icon button-icon" aria-hidden="true"><use href="#ph-moon"></use></svg>
+              <span id="themeToggleLabel">深色</span>
+            </button>
+            <button id="refreshButton" class="primary-button" type="button">
+              <svg class="ph-icon button-icon" aria-hidden="true"><use href="#ph-arrows-clockwise"></use></svg>
+              <span>刷新全部</span>
+            </button>
+            <button id="restoreInitialButton" class="restore-button" type="button">
+              <svg class="ph-icon button-icon" aria-hidden="true"><use href="#ph-arrow-counter-clockwise"></use></svg>
+              <span>恢复初始</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="pane active" id="overviewPane" data-pane="overview">
+          <div class="overview-dashboard">
+            <section class="health-panel">
+              <div class="hero-title-group">
+                <span class="section-icon" aria-hidden="true">
+                  <svg class="ph-icon"><use href="#ph-shield-check"></use></svg>
+                </span>
+                <div>
+                  <p class="label">系统体检</p>
+                  <p class="health-title">虚拟化与启动配置扫描</p>
+                  <p class="health-copy">
+                    一屏确认固件设置（BIOS/UEFI）、Windows 功能、启动配置（BCD）、内存和蓝屏收集状态。
+                  </p>
+                </div>
+              </div>
+              <div class="health-score">
+                <span id="healthScore">-</span>
+                <small>正常/托管/自动（Auto）</small>
+              </div>
+            </section>
+
+            <div class="summary-grid" aria-label="状态统计">
+              <article class="metric-card state-on">
+                <p class="label">开启 / 就绪</p>
+                <p id="onCount" class="metric state-count-on">-</p>
+              </article>
+              <article class="metric-card state-off">
+                <p class="label">关闭 / 禁用</p>
+                <p id="offCount" class="metric state-count-off">-</p>
+              </article>
+              <article class="metric-card state-custom">
+                <p class="label">自定义</p>
+                <p id="customCount" class="metric state-count-custom">-</p>
+              </article>
+              <article class="metric-card state-unknown">
+                <p class="label">无法判断</p>
+                <p id="unknownCount" class="metric state-count-unknown">-</p>
+              </article>
+            </div>
+
+            <section class="panel state-matrix-panel">
+              <div class="section-head">
+                <div class="section-title-with-icon">
+                  <span class="section-icon" aria-hidden="true">
+                    <svg class="ph-icon"><use href="#ph-list-checks"></use></svg>
+                  </span>
+                  <div>
+                  <p class="label">状态矩阵</p>
+                  <h2>按来源分组的关键开关</h2>
+                  </div>
+                </div>
+                <p class="subtle">绿色/灰色代表可用或托管，红色代表关闭，琥珀代表未知。</p>
+              </div>
+              <div id="stateList" class="compact-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="pane" id="controlsPane" data-pane="controls">
+          <div class="control-page">
+            <section class="panel control-summary">
+              <div class="section-title-with-icon">
+                <span class="section-icon" aria-hidden="true">
+                  <svg class="ph-icon"><use href="#ph-sliders-horizontal"></use></svg>
+                </span>
+                <div>
+                <p class="label">快速控制</p>
+                <h2>修改前先确认当前值和影响范围</h2>
+                </div>
+              </div>
+              <p class="subtle">固件项（BIOS/UEFI）只能重启进入设置；Windows 项会通过管理员命令执行。</p>
+            </section>
+
+            <div class="control-table">
+              <div class="control-group-row">固件设置（BIOS / UEFI）</div>
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">CPU 虚拟化（VT-x / SVM）</p>
+                  <p class="control-note" data-state-for="cpu_virtualization">当前：-</p>
+                </div>
+                <p class="control-risk">固件项，需要进 BIOS 手动修改。</p>
+                <button class="secondary-button firmware-button" type="button">进 BIOS</button>
+              </div>
+
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">设备直通（VT-d / IOMMU）</p>
+                  <p class="control-note" data-state-for="vtd_iommu">当前：-</p>
+                </div>
+                <p class="control-risk">影响直通、内存隔离和部分虚拟化场景。</p>
+                <button class="secondary-button firmware-button" type="button">进 BIOS</button>
+              </div>
+
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">兼容启动（CSM / Legacy Boot）</p>
+                  <p class="control-note" data-state-for="csm_legacy_boot">当前：-</p>
+                </div>
+                <p class="control-risk">推荐使用 UEFI；修改前确认启动盘格式。</p>
+                <button class="secondary-button firmware-button" type="button">进 BIOS</button>
+              </div>
+
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">安全启动（Secure Boot）</p>
+                  <p class="control-note" data-state-for="secure_boot">当前：-</p>
+                </div>
+                <p class="control-risk">安全启动策略项，需在固件内确认。</p>
+                <button class="secondary-button firmware-button" type="button">进 BIOS</button>
+              </div>
+
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">可信平台模块（TPM / Intel PTT / AMD fTPM）</p>
+                  <p class="control-note" data-state-for="tpm">当前：-</p>
+                </div>
+                <p class="control-risk">可能影响 BitLocker、Windows Hello 和安全功能。</p>
+                <button class="secondary-button firmware-button" type="button">进 BIOS</button>
+              </div>
+
+              <div class="control-group-row">Windows 虚拟化平台</div>
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">Hyper-V（微软虚拟机监控程序）</p>
+                  <p class="control-note" data-state-for="hyper_v">当前：-</p>
+                </div>
+                <p class="control-risk">影响 WSL2、模拟器、虚拟机和内核隔离。</p>
+                <div class="segmented">
+                  <button class="action-button" data-action="enable_hyper_v" type="button">开启</button>
+                  <button class="action-button" data-action="disable_hyper_v" type="button">关闭</button>
+                </div>
+              </div>
+
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">虚拟机平台（Virtual Machine Platform）</p>
+                  <p class="control-note" data-state-for="virtual_machine_platform">当前：-</p>
+                </div>
+                <p class="control-risk">WSL2、容器和部分虚拟化组件依赖它。</p>
+                <div class="segmented">
+                  <button class="action-button" data-action="enable_virtual_machine_platform" type="button">开启</button>
+                  <button class="action-button" data-action="disable_virtual_machine_platform" type="button">关闭</button>
+                </div>
+              </div>
+
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">Windows 虚拟机监控平台（Windows Hypervisor Platform）</p>
+                  <p class="control-note" data-state-for="windows_hypervisor_platform">当前：-</p>
+                </div>
+                <p class="control-risk">第三方虚拟机、模拟器可能需要该平台。</p>
+                <div class="segmented">
+                  <button class="action-button" data-action="enable_windows_hypervisor_platform" type="button">开启</button>
+                  <button class="action-button" data-action="disable_windows_hypervisor_platform" type="button">关闭</button>
+                </div>
+              </div>
+
+              <div class="control-group-row">启动与内存</div>
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">虚拟机监控程序启动项（hypervisorlaunchtype）</p>
+                  <p class="control-note" data-state-for="hypervisor_launch">当前：-</p>
+                </div>
+                <p class="control-risk">启动配置数据（BCD）项，修改后通常需要重启。</p>
+                <div class="segmented">
+                  <button class="action-button" data-action="set_hypervisor_auto" type="button">自动（Auto）</button>
+                  <button class="action-button" data-action="set_hypervisor_off" type="button">关闭（Off）</button>
+                </div>
+              </div>
+
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">快速启动（Windows Fast Startup）</p>
+                  <p class="control-note" data-state-for="fast_startup">当前：-</p>
+                </div>
+                <p class="control-risk">影响关机后的下一次启动路径。</p>
+                <div class="segmented">
+                  <button class="action-button" data-action="enable_fast_startup" type="button">开启</button>
+                  <button class="action-button" data-action="disable_fast_startup" type="button">关闭</button>
+                </div>
+              </div>
+
+              <div class="control-row">
+                <div class="control-main">
+                  <p class="control-title">内存压缩（Memory Compression）</p>
+                  <p class="control-note" data-state-for="memory_compression">当前：-</p>
+                </div>
+                <p class="control-risk">影响内存压力下的压缩策略。</p>
+                <div class="segmented">
+                  <button class="action-button" data-action="enable_memory_compression" type="button">开启</button>
+                  <button class="action-button" data-action="disable_memory_compression" type="button">关闭</button>
+                </div>
+              </div>
+
+              <div class="control-row restart-row">
+                <div class="control-main">
+                  <p class="control-title">系统重启</p>
+                  <p class="control-note">应用已经写入的系统更改</p>
+                </div>
+                <p class="control-risk">立即重启会关闭所有正在运行的程序。</p>
+                <button class="danger-button action-button" data-action="restart_windows" type="button">立即重启</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" id="gamingPane" data-pane="gaming">
+          <div class="gaming-layout">
+            <section class="panel gaming-hero-panel">
+              <div class="section-title-with-icon">
+                <span class="section-icon" aria-hidden="true">
+                  <svg class="ph-icon"><use href="#ph-gear-six"></use></svg>
+                </span>
+                <div>
+                  <p class="label">竞技模式</p>
+                  <h2>降低输入延迟与帧时间波动的安全优化</h2>
+                  <p class="subtle">不包含电源计划；Game Mode 保留为实验项，不进入默认预设。</p>
+                </div>
+              </div>
+              <div class="gaming-status-strip">
+                <span id="gamingAdminState" class="meta-chip">管理员：-</span>
+                <span id="gamingRebootState" class="meta-chip">待重启：-</span>
+                <span id="gamingChangeState" class="meta-chip">变更记录：-</span>
+              </div>
+            </section>
+
+            <section class="panel gaming-preset-panel">
+              <div class="section-head">
+                <div>
+                  <p class="label">安全预设</p>
+                  <h2>应用竞技 FPS 预设</h2>
+                </div>
+                <span class="status-pill state-auto">不含电源计划</span>
+              </div>
+              <div class="gaming-preset-options">
+                <label class="gaming-check">
+                  <input id="gamingPresetHags" type="checkbox" checked />
+                  <span>启用 HAGS</span>
+                </label>
+                <label class="gaming-check">
+                  <input id="gamingPresetCapture" type="checkbox" checked />
+                  <span>禁用 Game DVR / Game Bar 捕获</span>
+                </label>
+                <label class="gaming-check">
+                  <input id="gamingPresetFullscreen" type="checkbox" checked />
+                  <span>禁用所选游戏全屏优化</span>
+                </label>
+              </div>
+              <div class="gaming-actions-row">
+                <button id="gamingApplyPresetButton" class="primary-button" type="button">应用安全预设</button>
+                <button id="gamingRestoreChangesButton" class="restore-button" type="button">还原竞技模式改动</button>
+                <button id="gamingRefreshButton" class="secondary-button" type="button">刷新状态</button>
+              </div>
+              <p id="gamingActionMessage" class="message detail-message">等待读取竞技模式状态。</p>
+            </section>
+
+            <section class="panel gaming-game-panel">
+              <div class="section-head">
+                <div>
+                  <p class="label">游戏 exe</p>
+                  <h2>按游戏应用全屏优化</h2>
+                </div>
+              </div>
+              <p id="gamingSelectedGamePath" class="path-value gaming-game-path">未选择游戏 exe</p>
+              <div class="gaming-actions-row single">
+                <button id="gamingBrowseGameButton" class="secondary-button" type="button">选择游戏 exe</button>
+              </div>
+            </section>
+
+            <div class="gaming-card-grid">
+              <article class="panel gaming-setting-card" data-gaming-card="hags">
+                <div class="gaming-card-head">
+                  <div>
+                    <p class="label">HAGS</p>
+                    <h2>硬件加速 GPU 调度</h2>
+                  </div>
+                  <span id="gamingHagsBadge" class="status-pill state-unknown">-</span>
+                </div>
+                <p id="gamingHagsDetail" class="subtle">-</p>
+                <div class="gaming-card-actions">
+                  <button class="gaming-action-button primary-button" data-gaming-action="enable_hags" type="button">启用</button>
+                  <button class="gaming-action-button secondary-button" data-gaming-action="default_hags" type="button">恢复默认</button>
+                </div>
+              </article>
+
+              <article class="panel gaming-setting-card" data-gaming-card="capture">
+                <div class="gaming-card-head">
+                  <div>
+                    <p class="label">Game DVR</p>
+                    <h2>Xbox Game Bar / 后台捕获</h2>
+                  </div>
+                  <span id="gamingCaptureBadge" class="status-pill state-unknown">-</span>
+                </div>
+                <p id="gamingCaptureDetail" class="subtle">-</p>
+                <div class="gaming-card-actions">
+                  <button class="gaming-action-button primary-button" data-gaming-action="disable_game_capture" type="button">禁用捕获</button>
+                  <button class="gaming-action-button secondary-button" data-gaming-action="restore_game_capture" type="button">恢复默认</button>
+                </div>
+              </article>
+
+              <article class="panel gaming-setting-card" data-gaming-card="fullscreen">
+                <div class="gaming-card-head">
+                  <div>
+                    <p class="label">Fullscreen Optimizations</p>
+                    <h2>所选游戏全屏优化</h2>
+                  </div>
+                  <span id="gamingFullscreenBadge" class="status-pill state-unknown">-</span>
+                </div>
+                <p id="gamingFullscreenDetail" class="subtle">选择游戏 exe 后检测。</p>
+                <div class="gaming-card-actions">
+                  <button class="gaming-action-button primary-button" data-gaming-action="disable_fullscreen_optimization" type="button">禁用</button>
+                  <button class="gaming-action-button secondary-button" data-gaming-action="restore_fullscreen_optimization" type="button">恢复</button>
+                </div>
+              </article>
+
+              <article class="panel gaming-setting-card experimental" data-gaming-card="game-mode">
+                <div class="gaming-card-head">
+                  <div>
+                    <p class="label">实验项</p>
+                    <h2>Game Mode</h2>
+                  </div>
+                  <span id="gamingGameModeBadge" class="status-pill state-unknown">-</span>
+                </div>
+                <p id="gamingGameModeDetail" class="subtle">不同机器差异较大，建议单独 A/B 测试。</p>
+                <div class="gaming-card-actions">
+                  <button class="gaming-action-button secondary-button" data-gaming-action="disable_game_mode" type="button">禁用测试</button>
+                  <button class="gaming-action-button secondary-button" data-gaming-action="restore_game_mode" type="button">恢复默认</button>
+                </div>
+              </article>
+            </div>
+
+            <section class="panel gaming-manual-panel">
+              <div class="section-head">
+                <div>
+                  <p class="label">手动检查</p>
+                  <h2>GPU 与游戏内设置</h2>
+                </div>
+              </div>
+              <div class="gaming-manual-list">
+                <article>
+                  <strong>NVIDIA 控制面板</strong>
+                  <span>Low Latency Mode = Ultra，Power management = Prefer maximum performance。</span>
+                </article>
+                <article>
+                  <strong>游戏内延迟选项</strong>
+                  <span>优先开启 NVIDIA Reflex + Boost，再用实战或 CapFrameX 对比帧时间。</span>
+                </article>
+                <article>
+                  <strong>高级争议项</strong>
+                  <span>HPET、Timer Resolution、网络 tweaks、Core Isolation 不自动应用。</span>
+                </article>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="pane" id="memoryPane" data-pane="memory">
+          <div class="vm-layout">
+            <section class="panel vm-status-panel">
+              <div class="section-head">
+                <div class="section-title-with-icon">
+                  <span class="section-icon" aria-hidden="true">
+                    <svg class="ph-icon"><use href="#ph-memory"></use></svg>
+                  </span>
+                  <div>
+                  <p class="label">虚拟内存</p>
+                  <h2>页面文件（pagefile.sys）当前配置</h2>
+                  </div>
+                </div>
+                <p class="subtle">配置值与运行值合并展示</p>
+              </div>
+
+              <div class="vm-metrics">
+                <div>
+                  <p class="state-name">物理内存</p>
+                  <p id="vmRam" class="feature-state">-</p>
+                </div>
+                <div>
+                  <p class="state-name">当前模式</p>
+                  <p id="vmMode" class="feature-state">-</p>
+                </div>
+                <div>
+                  <p class="state-name">系统盘可用</p>
+                  <p id="vmFree" class="feature-state">-</p>
+                </div>
+              </div>
+
+              <div class="vm-pagefile-list" id="pagefileList"></div>
+            </section>
+
+            <section class="panel vm-recommend-panel">
+              <div class="section-head">
+                <div class="section-title-with-icon">
+                  <span class="section-icon" aria-hidden="true">
+                    <svg class="ph-icon"><use href="#ph-database"></use></svg>
+                  </span>
+                  <div>
+                  <p class="label">推荐方案</p>
+                  <h2>按用途选择页面文件策略</h2>
+                  </div>
+                </div>
+                <p class="subtle">修改后通常需重启</p>
+              </div>
+
+              <div class="vm-current-box">
+                <div class="mini-head">
+                  <p>当前配置</p>
+                  <span id="vmCurrentMode">-</span>
+                </div>
+                <div class="vm-current-grid">
+                  <div>
+                    <span>用户设定</span>
+                    <strong id="vmCurrentConfigured">-</strong>
+                  </div>
+                  <div>
+                    <span>当前运行</span>
+                    <strong id="vmCurrentRuntime">-</strong>
+                  </div>
+                </div>
+                <p id="vmCurrentNote" class="vm-current-note">-</p>
+              </div>
+
+              <div class="vm-scheme-block">
+                <div class="mini-head">
+                  <p>选择方案</p>
+                  <span id="vmFormulaRam">-</span>
+                </div>
+                <div id="formulaOptions" class="formula-options vm-formula-options"></div>
+              </div>
+
+              <div class="vm-input-grid">
+                <label>
+                  <span>自定义初始大小 MB</span>
+                  <input
+                    id="pagefileInitialInput"
+                    type="number"
+                    min="256"
+                    step="128"
+                    inputmode="numeric"
+                    placeholder="无需填写"
+                  />
+                </label>
+                <label>
+                  <span>自定义最大大小 MB</span>
+                  <input
+                    id="pagefileMaximumInput"
+                    type="number"
+                    min="256"
+                    step="128"
+                    inputmode="numeric"
+                    placeholder="无需填写"
+                  />
+                </label>
+              </div>
+
+              <div class="vm-actions">
+                <button id="applyCustomPagefile" class="primary-button" type="button">应用输入值</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="pane" id="checksPane" data-pane="checks">
+          <div class="checks-table">
+            <div class="table-header">
+              <span>功能</span>
+              <span>状态</span>
+              <span>当前值 / 证据</span>
+            </div>
+            <div id="checksList"></div>
+          </div>
+        </section>
+
+        <section class="pane" id="bsodPane" data-pane="bsod">
+          <div class="bsod-layout">
+            <section class="panel">
+              <div class="section-head">
+                <div class="section-title-with-icon">
+                  <span class="section-icon" aria-hidden="true">
+                    <svg class="ph-icon"><use href="#ph-warning-octagon"></use></svg>
+                  </span>
+                  <div>
+                  <p class="label">蓝屏分析</p>
+                  <h2>转储文件（DMP）收集状态</h2>
+                  </div>
+                </div>
+                <p id="dumpCount" class="subtle">-</p>
+              </div>
+              <div class="bsod-metrics">
+                <div>
+                  <p class="state-name">写入调试信息</p>
+                  <p id="dumpMode" class="feature-state">-</p>
+                </div>
+                <div>
+                  <p class="state-name">小内存转储路径（Minidump）</p>
+                  <p id="dumpPathState" class="feature-state">-</p>
+                </div>
+                <div>
+                  <p class="state-name">蓝屏查看器（BlueScreenView）</p>
+                  <p id="bsodToolState" class="feature-state">-</p>
+                </div>
+              </div>
+
+              <div class="bsod-path-box">
+                <p class="state-name">当前目录</p>
+                <p id="dumpPath" class="path-value">-</p>
+              </div>
+
+              <div class="section-head compact-head">
+                <p class="label">最近转储文件（DMP）</p>
+                <p class="subtle">按修改时间展示</p>
+              </div>
+              <div id="dumpList" class="dump-list"></div>
+            </section>
+
+            <section class="panel bsod-action-panel">
+              <div class="section-head">
+                <div class="section-title-with-icon">
+                  <span class="section-icon" aria-hidden="true">
+                    <svg class="ph-icon"><use href="#ph-gear-six"></use></svg>
+                  </span>
+                  <div>
+                  <p class="label">自动配置</p>
+                  <h2>小内存转储与报告导出</h2>
+                  </div>
+                </div>
+                <p class="subtle">无需手动进入系统属性</p>
+              </div>
+              <div class="recommendation-box">
+                <p class="recommend-title">开启小内存转储</p>
+                <p class="recommend-copy">
+                  程序会设置崩溃转储开关（CrashDumpEnabled=3），并把小内存转储目录（MinidumpDir）设置为 %SystemRoot%\Minidump。
+                  下次蓝屏后，Windows 会把 .dmp 文件放到这个目录，供蓝屏查看器（BlueScreenView）分析。
+                </p>
+              </div>
+              <div class="bsod-actions">
+                <button id="configureDumpButton" class="primary-button" type="button">开启转储收集（DMP）</button>
+                <button id="openBlueScreenViewButton" class="secondary-button" type="button">打开蓝屏查看器（BlueScreenView）</button>
+                <button id="exportBlueScreenReportButton" class="secondary-button" type="button">导出 CSV 报告</button>
+              </div>
+              <p id="bsodDetails" class="message detail-message">-</p>
+            </section>
+          </div>
+        </section>
+
+        <section class="pane" id="hardwarePane" data-pane="hardware">
+          <div class="hardware-grid">
+            <article class="panel hardware-card">
+              <span class="card-icon" aria-hidden="true">
+                <svg class="ph-icon"><use href="#ph-hard-drives"></use></svg>
+              </span>
+              <p class="label">主板</p>
+              <p id="boardInfo" class="hardware-value">-</p>
+            </article>
+            <article class="panel hardware-card">
+              <span class="card-icon" aria-hidden="true">
+                <svg class="ph-icon"><use href="#ph-gear-six"></use></svg>
+              </span>
+              <p class="label">固件版本（BIOS）</p>
+              <p id="biosInfo" class="hardware-value">-</p>
+            </article>
+            <article class="panel hardware-card">
+              <span class="card-icon" aria-hidden="true">
+                <svg class="ph-icon"><use href="#ph-cpu"></use></svg>
+              </span>
+              <p class="label">CPU</p>
+              <p id="cpuInfo" class="hardware-value">-</p>
+            </article>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="appDialog" class="dialog-backdrop" aria-hidden="true">
+      <section class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+        <div class="dialog-accent" id="dialogAccent"></div>
+        <div class="dialog-content">
+          <div class="dialog-icon" id="dialogIcon">
+            <svg class="ph-icon" aria-hidden="true"><use href="#ph-warning-circle"></use></svg>
+          </div>
+          <div>
+            <p id="dialogEyebrow" class="dialog-eyebrow">确认操作</p>
+            <h2 id="dialogTitle" class="dialog-title">确认操作</h2>
+            <p id="dialogBody" class="dialog-body">-</p>
+            <ul id="dialogRiskList" class="dialog-risk-list"></ul>
+            <p id="dialogDetails" class="dialog-details"></p>
+            <label id="dialogAcknowledgeWrap" class="dialog-ack" hidden>
+              <input id="dialogAcknowledge" type="checkbox" />
+              <span>我已备份重要数据并完全了解风险</span>
+            </label>
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button id="dialogCancel" class="secondary-button" type="button">取消</button>
+          <button id="dialogConfirm" class="primary-button" type="button">确认</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="./main.js"></script>
+  </body>
+</html>

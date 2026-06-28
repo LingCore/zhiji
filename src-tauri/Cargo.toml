@@ -1,0 +1,29 @@
+[package]
+name = "pc-requirements-checker"
+version = "0.1.0"
+description = "Windows PC requirements checker"
+authors = ["bob"]
+edition = "2021"
+
+[lib]
+name = "pc_requirements_checker_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+windows-sys = { version = "0.60", features = ["Win32_UI_Shell"] }
+winreg = "0.55"
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = "symbols"
