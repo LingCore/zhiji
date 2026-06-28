@@ -908,18 +908,35 @@ function Restore-PreviousEdidOverride {{
 
 $overridePath = 'HKLM:\{registry_path}\EDID_OVERRIDE'
 $publishedDriverNamePath = '{published_driver_name_path}'
+$infPath = '{generated_inf_path}'
+$infDirectory = Split-Path -Parent $infPath
+$infText = Get-Content -LiteralPath $infPath -Raw
+$catalogMatch = [regex]::Match($infText, '(?im)^\s*CatalogFile(?:\.[^\s=]+)?\s*=\s*(.+?)\s*$')
+if (-not $catalogMatch.Success) {{
+  throw "Windows 11 已启用代码完整性，显示器 INF 必须包含已签名的 .cat catalog；当前生成的 INF 没有 CatalogFile，因此已跳过安装且未写入新的 EDID_OVERRIDE。"
+}}
+$catalogName = $catalogMatch.Groups[1].Value.Trim().Trim('"')
+$catalogPath = Join-Path $infDirectory $catalogName
+if (-not (Test-Path -LiteralPath $catalogPath)) {{
+  throw "Windows 11 已启用代码完整性，显示器 INF 声明了 catalog '$catalogName'，但文件不存在；已跳过安装且未写入新的 EDID_OVERRIDE。"
+}}
+$catalogSignature = Get-AuthenticodeSignature -LiteralPath $catalogPath
+if ($catalogSignature.Status -ne 'Valid') {{
+  throw "Windows 11 已启用代码完整性，显示器 INF 的 catalog 签名无效：$($catalogSignature.Status)；已跳过安装且未写入新的 EDID_OVERRIDE。"
+}}
+
 Remove-Item -LiteralPath $publishedDriverNamePath -Force -ErrorAction SilentlyContinue
 New-Item -Path $overridePath -Force | Out-Null
 New-ItemProperty -LiteralPath $overridePath -Name '0' -PropertyType Binary -Value (Convert-HexToBytes '{edid_hex}') -Force | Out-Null
 "已写入 EDID_OVERRIDE\0：{registry_path}"
 
-$add = & pnputil /add-driver '{generated_inf_path}' /install 2>&1 | Out-String
+$add = & pnputil /add-driver $infPath /install 2>&1 | Out-String
 $addExit = $LASTEXITCODE
 "pnputil /add-driver /install 输出："
 $add.Trim()
 if ($addExit -ne 0) {{
   Restore-PreviousEdidOverride
-  throw "pnputil /add-driver /install 失败，已恢复之前的 EDID_OVERRIDE。"
+  throw ("pnputil /add-driver /install 失败，已恢复之前的 EDID_OVERRIDE。输出：" + $add.Trim())
 }}
 
 $published = [regex]::Match($add, '(?i)oem\d+\.inf')
@@ -1633,8 +1650,14 @@ mod tests {
         assert!(script.contains("pnputil /add-driver"));
         assert!(script.contains("/install"));
         assert!(script.contains("published-driver.txt"));
+        assert!(script.contains("CatalogFile"));
+        assert!(script.contains("代码完整性"));
         assert!(script.contains("Restore-PreviousEdidOverride"));
         assert!(script.contains("pnputil /enum-devices"));
+        assert!(
+            script.find("CatalogFile").unwrap()
+                < script.find("New-Item -Path $overridePath").unwrap()
+        );
     }
 
     #[test]
