@@ -538,9 +538,9 @@
                   <svg class="ph-icon"><use href="#ph-hard-drives"></use></svg>
                 </span>
                 <div>
-                  <p class="label">EDID 身份覆盖</p>
-                  <h2>显示器身份覆盖</h2>
-                  <p class="subtle">修改 Windows 读取到的厂商 ID、产品码、序列号和显示器名称；不写入显示器 EEPROM。</p>
+                  <p class="label">显示器身份</p>
+                  <h2>修改显示器身份</h2>
+                  <p class="subtle">推荐流程会自动生成签名 INF、写入 EDID 覆盖，并保留 30 秒自动恢复保护；不会写入显示器 EEPROM。</p>
                 </div>
               </div>
               <div class="gaming-status-strip">
@@ -554,9 +554,9 @@
               <div class="section-head">
                 <div>
                   <p class="label">目标显示器</p>
-                  <h2>身份字段</h2>
+                  <h2>新身份</h2>
                 </div>
-                <span class="status-pill state-unknown">30 秒自动回滚</span>
+                <span class="status-pill state-unknown">自动保护</span>
               </div>
               <label class="monitor-identity-select">
                 <span>显示器</span>
@@ -585,15 +585,20 @@
                   <input id="monitorNameInput" maxlength="13" spellcheck="false" placeholder="P2710V MAX" />
                 </label>
               </div>
-              <div class="gaming-actions-row two">
-                <button id="monitorIdentityApplyButton" class="primary-button" type="button">应用身份覆盖</button>
-                <button id="monitorIdentityInstallInfButton" class="primary-button" type="button">安装 INF 覆盖</button>
-                <button id="monitorIdentityReenumerateButton" class="secondary-button" type="button">强制重枚举</button>
+              <div class="monitor-identity-primary-actions">
+                <button id="monitorIdentityInstallInfButton" class="primary-button" type="button">应用修改</button>
                 <button id="monitorIdentityRandomButton" class="secondary-button" type="button">一键随机</button>
-                <button id="monitorIdentityRefreshButton" class="secondary-button" type="button">刷新显示器</button>
                 <button id="monitorIdentityConfirmButton" class="primary-button" type="button" disabled>保留更改</button>
-                <button id="monitorIdentityRollbackButton" class="restore-button" type="button">还原上次覆盖</button>
+                <button id="monitorIdentityRollbackButton" class="restore-button" type="button">还原</button>
+                <button id="monitorIdentityRefreshButton" class="secondary-button" type="button">刷新</button>
               </div>
+              <details class="monitor-identity-advanced">
+                <summary>高级工具</summary>
+                <div>
+                  <button id="monitorIdentityApplyButton" class="secondary-button" type="button">仅写注册表</button>
+                  <button id="monitorIdentityReenumerateButton" class="secondary-button" type="button">重枚举显示器</button>
+                </div>
+              </details>
               <p id="monitorIdentityMessage" class="message detail-message">进入面板后读取显示器状态。</p>
             </section>
 

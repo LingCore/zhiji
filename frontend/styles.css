@@ -1724,6 +1724,38 @@ h2 {
   grid-column: span 2;
 }
 
+.monitor-identity-primary-actions {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1.35fr repeat(4, minmax(0, 1fr));
+  margin-top: var(--module-padding-sm);
+}
+
+.monitor-identity-primary-actions button {
+  min-width: 0;
+}
+
+.monitor-identity-advanced {
+  border-top: 1px solid var(--line-soft);
+  margin-top: var(--module-padding-sm);
+  padding-top: var(--space-5);
+}
+
+.monitor-identity-advanced summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 850;
+  list-style-position: inside;
+}
+
+.monitor-identity-advanced div {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: var(--space-4);
+}
+
 .monitor-identity-log {
   display: grid;
   gap: var(--space-4);
@@ -2611,6 +2643,8 @@ h2 {
   .gaming-actions-row.two,
   .gaming-actions-row.single,
   .gaming-card-actions,
+  .monitor-identity-primary-actions,
+  .monitor-identity-advanced div,
   .monitor-identity-input-grid .wide {
     grid-template-columns: 1fr;
     grid-column: auto;

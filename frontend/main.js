@@ -399,7 +399,7 @@ const invoke = () => {
       return {
         action: command,
         succeeded: true,
-        message: isInfInstall ? "预览模式：已安装 INF 覆盖。" : "预览模式：已应用显示器身份覆盖。",
+        message: isInfInstall ? "预览模式：已应用显示器身份修改。" : "预览模式：已写入注册表覆盖。",
         output: "仅预览",
         pending_confirmation: pending
       };
@@ -1106,13 +1106,10 @@ function renderMonitorIdentityCurrent(monitor = selectedMonitorIdentity()) {
   }
   const identity = monitor.current || monitor.original || {};
   const reported = monitor.windows_reported || {};
-  appendMonitorIdentityCell(monitorIdentityCurrentEl, "硬件 ID", identity.windows_hardware_id || monitor.hardware_id);
+  appendMonitorIdentityCell(monitorIdentityCurrentEl, "覆盖身份", identity.windows_hardware_id || monitor.hardware_id);
   appendMonitorIdentityCell(monitorIdentityCurrentEl, "Windows 报告", reported.hardware_id || "-");
-  appendMonitorIdentityCell(monitorIdentityCurrentEl, "WMI 序列号", reported.serial_number);
-  appendMonitorIdentityCell(monitorIdentityCurrentEl, "序列号文本", identity.serial_number);
   appendMonitorIdentityCell(monitorIdentityCurrentEl, "显示器名称", identity.monitor_name);
-  appendMonitorIdentityCell(monitorIdentityCurrentEl, "数字序列号", String(identity.numeric_serial ?? "-"));
-  appendMonitorIdentityCell(monitorIdentityCurrentEl, "EDID 校验", identity.checksum_valid ? "正常" : "无效");
+  appendMonitorIdentityCell(monitorIdentityCurrentEl, "序列号", identity.serial_number || reported.serial_number);
   appendMonitorIdentityCell(monitorIdentityCurrentEl, "覆盖状态", monitor.override_present ? "已启用" : "未覆盖");
 }
 
@@ -1126,7 +1123,7 @@ function renderMonitorIdentityLog(changes = monitorIdentityStatus?.changes || []
     const title = document.createElement("strong");
     title.textContent = "没有覆盖记录";
     const body = document.createElement("p");
-    body.textContent = "应用身份覆盖后，这里会显示可回滚记录。";
+    body.textContent = "应用修改后，这里会显示可还原记录。";
     empty.append(title, body);
     monitorIdentityLogEl.append(empty);
     return;
@@ -1350,11 +1347,11 @@ async function applyMonitorIdentityOverride(mode = "registry") {
   const isInfInstall = mode === "inf";
   const confirmed = await confirmDialog({
     variant: "danger",
-    eyebrow: isInfInstall ? "Monitor INF 覆盖" : "EDID 身份覆盖",
-    title: isInfInstall ? "确认安装显示器 INF 覆盖？" : "确认修改显示器身份？",
+    eyebrow: isInfInstall ? "显示器身份" : "高级工具",
+    title: isInfInstall ? "确认应用显示器身份修改？" : "确认仅写入注册表覆盖？",
     body: isInfInstall
-      ? "程序会生成并安装显示器 INF 覆盖驱动，同时写入 Windows 的 EDID_OVERRIDE；不写入显示器 EEPROM。应用后必须在 30 秒内点击保留更改，否则后台保护进程会自动回滚。"
-      : "程序会写入 Windows 的 EDID_OVERRIDE，不写入显示器 EEPROM。应用后必须在 30 秒内点击保留更改，否则后台保护进程会自动回滚。",
+      ? "程序会使用推荐流程应用新身份：生成签名 INF、写入 Windows 的 EDID 覆盖并重扫设备；不写入显示器 EEPROM。应用后必须在 30 秒内点击保留更改，否则会自动恢复。"
+      : "程序只写入 Windows 的 EDID_OVERRIDE，不安装显示器 INF；不写入显示器 EEPROM。应用后必须在 30 秒内点击保留更改，否则会自动恢复。",
     riskItems: isInfInstall
       ? [
           "会调用 pnputil /add-driver /install 安装本次生成的 monitor INF，并记录发布出来的 oem*.inf 以便回滚。",
@@ -1369,7 +1366,7 @@ async function applyMonitorIdentityOverride(mode = "registry") {
         ],
     requireAcknowledge: true,
     details: request.monitor_device_instance_id,
-    confirmText: isInfInstall ? "安装并启动回滚计时" : "应用并启动回滚计时"
+    confirmText: isInfInstall ? "应用并启动保护" : "仅写注册表"
   });
   if (!confirmed) {
     return;
@@ -1378,8 +1375,8 @@ async function applyMonitorIdentityOverride(mode = "registry") {
   setBusy(true);
   if (monitorIdentityMessageEl) {
     monitorIdentityMessageEl.textContent = isInfInstall
-      ? "正在安装显示器 INF 覆盖..."
-      : "正在应用 EDID 身份覆盖...";
+      ? "正在应用显示器身份修改..."
+      : "正在写入注册表覆盖...";
   }
   try {
     await waitForNextPaint();
@@ -1413,7 +1410,7 @@ async function reenumerateMonitorIdentityDevice() {
 
   const confirmed = await confirmDialog({
     variant: "danger",
-    eyebrow: "显示器重枚举",
+    eyebrow: "高级工具",
     title: "确认强制重枚举显示器？",
     body: "程序会执行 pnputil /remove-device 和 /scan-devices，让 Windows 重新枚举当前显示器。操作后必须在 30 秒内点击保留更改，否则后台保护进程会移除本程序覆盖并回到物理 EDID。",
     riskItems: [
@@ -1480,12 +1477,12 @@ async function restoreMonitorIdentityOverride() {
   const pending = monitorIdentityStatus?.pending_confirmation;
   const confirmed = await confirmDialog({
     variant: "danger",
-    eyebrow: "EDID 身份覆盖",
-    title: "还原显示器身份覆盖？",
-    body: "程序会按变更记录恢复上一个 EDID_OVERRIDE 状态，并重扫显示设备。",
+    eyebrow: "显示器身份",
+    title: "还原显示器身份修改？",
+    body: "程序会按变更记录恢复上一次状态，并重扫显示设备。",
     riskItems: ["只还原本程序记录的覆盖；其它工具未记录的修改不会被猜测覆盖。"],
     requireAcknowledge: true,
-    confirmText: "还原覆盖"
+    confirmText: "还原"
   });
   if (!confirmed) {
     return;
@@ -1493,7 +1490,7 @@ async function restoreMonitorIdentityOverride() {
 
   setBusy(true);
   if (monitorIdentityMessageEl) {
-    monitorIdentityMessageEl.textContent = "正在还原显示器身份覆盖...";
+    monitorIdentityMessageEl.textContent = "正在还原显示器身份修改...";
   }
   try {
     await waitForNextPaint();

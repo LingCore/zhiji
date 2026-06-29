@@ -802,19 +802,20 @@ await checkAsync("高风险操作弹窗必须展示后果清单并勾选确认",
   assert.equal(dialog.classList.contains("open"), false, "取消后弹窗应关闭");
 });
 
-check("显示器身份面板包含 EDID override 和 30 秒自动回滚控制", () => {
+check("显示器身份面板默认呈现推荐流程并折叠高级工具", () => {
   const pane = document.getElementById("monitorIdentityPane");
   assert.ok(pane, "应存在显示器身份面板");
   assert.ok(document.querySelector('[data-view="monitorIdentity"]'), "应有显示器身份导航入口");
   assert.ok(document.getElementById("monitorIdentitySelect"), "应有显示器选择器");
   assert.ok(document.getElementById("monitorManufacturerInput"), "应有 Manufacturer ID 输入");
   assert.ok(document.getElementById("monitorProductInput"), "应有 Product Code 输入");
-  assert.ok(document.getElementById("monitorIdentityApplyButton"), "应有应用覆盖按钮");
-  assert.ok(document.getElementById("monitorIdentityInstallInfButton"), "应有安装 INF 覆盖按钮");
-  assert.ok(document.getElementById("monitorIdentityReenumerateButton"), "应有强制重枚举按钮");
+  assert.equal(document.getElementById("monitorIdentityInstallInfButton").textContent, "应用修改");
+  assert.ok(document.querySelector(".monitor-identity-advanced"), "应把高风险工具折叠进高级工具");
+  assert.ok(document.getElementById("monitorIdentityApplyButton"), "高级工具应有仅写注册表按钮");
+  assert.ok(document.getElementById("monitorIdentityReenumerateButton"), "高级工具应有强制重枚举按钮");
   assert.ok(document.getElementById("monitorIdentityConfirmButton"), "应有保留更改按钮");
   assert.ok(document.getElementById("monitorIdentityRollbackButton"), "应有回滚按钮");
-  assert.equal(pane.textContent.includes("30 秒自动回滚"), true);
+  assert.equal(pane.textContent.includes("自动保护"), true);
   assert.ok(js.includes("monitor_identity_apply_override"), "前端应调用显示器身份应用命令");
   assert.ok(js.includes("monitor_identity_install_inf_override"), "前端应调用显示器身份 INF 安装命令");
   assert.ok(js.includes("monitor_identity_reenumerate_device"), "前端应调用显示器强制重枚举命令");
@@ -834,10 +835,11 @@ await checkAsync("显示器身份预览应用后进入待确认并可保留", as
   document.getElementById("monitorProductInput").value = "A123";
   document.getElementById("monitorSerialInput").value = "SN123456";
   document.getElementById("monitorNameInput").value = "FAKE PANEL";
-  document.getElementById("monitorIdentityApplyButton").click();
+  document.getElementById("monitorIdentityInstallInfButton").click();
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   const acknowledge = document.getElementById("dialogAcknowledge");
+  assert.equal(document.getElementById("dialogTitle").textContent, "确认应用显示器身份修改？");
   acknowledge.checked = true;
   acknowledge.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
   document.getElementById("dialogConfirm").click();
@@ -851,7 +853,7 @@ await checkAsync("显示器身份预览应用后进入待确认并可保留", as
   assert.equal(document.getElementById("monitorIdentityConfirmButton").disabled, true);
 });
 
-await checkAsync("显示器身份 INF 预览安装后进入待确认并记录驱动包", async () => {
+await checkAsync("显示器身份推荐流程预览后进入待确认并记录驱动包", async () => {
   document.querySelector('[data-view="monitorIdentity"]').click();
   await new Promise((resolve) => setTimeout(resolve, 30));
 
@@ -862,7 +864,7 @@ await checkAsync("显示器身份 INF 预览安装后进入待确认并记录驱
   document.getElementById("monitorIdentityInstallInfButton").click();
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(document.getElementById("dialogTitle").textContent, "确认安装显示器 INF 覆盖？");
+  assert.equal(document.getElementById("dialogTitle").textContent, "确认应用显示器身份修改？");
   const acknowledge = document.getElementById("dialogAcknowledge");
   acknowledge.checked = true;
   acknowledge.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
