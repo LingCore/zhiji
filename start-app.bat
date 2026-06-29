@@ -2,7 +2,7 @@
 setlocal
 
 set "ROOT=%~dp0"
-set "APP_EXE=%ROOT%src-tauri\target\release\pc-requirements-checker.exe"
+set "APP_EXE=%ROOT%src-tauri\target\release\Zhiji.exe"
 
 if exist "%APP_EXE%" (
   start "" "%APP_EXE%" %*

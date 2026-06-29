@@ -1,4 +1,5 @@
 const THEME_STORAGE_KEY = "pc-requirements-theme";
+const PROJECT_REPOSITORY_URL = "https://github.com/LingCore/zhiji";
 const hasTauri = Boolean(window.__TAURI__?.core?.invoke);
 
 function storedThemePreference() {
@@ -19,6 +20,39 @@ function preferredTheme() {
 }
 
 document.documentElement.dataset.theme = preferredTheme();
+
+function isEditableTarget(target) {
+  return Boolean(target?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]'));
+}
+
+function installDesktopShellGuards() {
+  document.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
+
+  document.addEventListener("dragstart", (event) => {
+    event.preventDefault();
+  });
+
+  document.addEventListener("selectstart", (event) => {
+    if (!isEditableTarget(event.target)) {
+      event.preventDefault();
+    }
+  });
+
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      const key = event.key.toLowerCase();
+      const isReload = event.key === "F5" || ((event.ctrlKey || event.metaKey) && key === "r");
+      const isHistoryNavigation = event.altKey && (event.key === "ArrowLeft" || event.key === "ArrowRight");
+      if (isReload || isHistoryNavigation) {
+        event.preventDefault();
+      }
+    },
+    { capture: true }
+  );
+}
 
 const previewReport = {
   computer_name: "PREVIEW",
@@ -538,6 +572,17 @@ const invoke = () => {
       };
     }
 
+    if (command === "open_project_repository") {
+      window.__lastOpenedProjectUrl = PROJECT_REPOSITORY_URL;
+      return {
+        action: "open_project_repository",
+        succeeded: true,
+        requires_restart: false,
+        message: "浏览器预览模式：这里会用默认浏览器打开 GitHub。",
+        output: PROJECT_REPOSITORY_URL
+      };
+    }
+
     if (command === "export_bluescreen_report") {
       return {
         action: "export_bluescreen_report",
@@ -566,6 +611,7 @@ const windowCloseButton = document.querySelector("#windowCloseButton");
 const themeToggleButton = document.querySelector("#themeToggleButton");
 const themeToggleLabel = document.querySelector("#themeToggleLabel");
 const themeToggleIconUse = document.querySelector("#themeToggleIcon use");
+const aboutButton = document.querySelector("#aboutButton");
 const refreshButton = document.querySelector("#refreshButton");
 const restoreInitialButton = document.querySelector("#restoreInitialButton");
 const actionButtons = Array.from(document.querySelectorAll(".action-button"));
@@ -620,6 +666,9 @@ const dialogDetails = document.querySelector("#dialogDetails");
 const dialogRiskList = document.querySelector("#dialogRiskList");
 const dialogIcon = document.querySelector("#dialogIcon");
 const dialogIconUse = document.querySelector("#dialogIcon use");
+const dialogLinkAction = document.querySelector("#dialogLinkAction");
+const dialogLinkActionLabel = document.querySelector("#dialogLinkActionLabel");
+const dialogLinkActionIconUse = document.querySelector("#dialogLinkAction use");
 const dialogCancel = document.querySelector("#dialogCancel");
 const dialogConfirm = document.querySelector("#dialogConfirm");
 const dialogAcknowledgeWrap = document.querySelector("#dialogAcknowledgeWrap");
@@ -1567,6 +1616,8 @@ function showDialog(options = {}) {
     requireAcknowledge = false,
     confirmText = "确认",
     cancelText = "取消",
+    iconSymbol = "",
+    linkAction = null,
     showCancel = true
   } = options;
 
@@ -1598,7 +1649,7 @@ function showDialog(options = {}) {
   if (dialogIcon) {
     dialogIcon.dataset.variant = variant;
     if (dialogIconUse) {
-      setIconHref(dialogIconUse, variant === "info" ? "ph-shield-check" : "ph-warning-circle");
+      setIconHref(dialogIconUse, iconSymbol || (variant === "info" ? "ph-shield-check" : "ph-warning-circle"));
     } else {
       dialogIcon.textContent = variant === "danger" ? "!" : variant === "warning" ? "!" : "i";
     }
@@ -1614,6 +1665,16 @@ function showDialog(options = {}) {
   if (dialogAcknowledgeWrap && dialogAcknowledge) {
     dialogAcknowledge.checked = false;
     dialogAcknowledgeWrap.hidden = !requireAcknowledge;
+  }
+  if (dialogLinkAction) {
+    dialogLinkAction.hidden = !linkAction;
+    dialogLinkAction.dataset.action = linkAction?.action || "";
+    if (dialogLinkActionLabel) {
+      dialogLinkActionLabel.textContent = linkAction?.label || "GitHub";
+    }
+    if (dialogLinkActionIconUse) {
+      setIconHref(dialogLinkActionIconUse, linkAction?.iconSymbol || "ph-github-logo");
+    }
   }
 
   return new Promise((resolve) => {
@@ -1645,6 +1706,33 @@ function notifyDialog(options) {
     ...options,
     showCancel: false
   });
+}
+
+function showAboutDialog() {
+  return notifyDialog({
+    eyebrow: "关于",
+    title: "知机",
+    body: `作者：LingCore\n开源协议：MIT\n${PROJECT_REPOSITORY_URL}\n用于查看和调整 Windows 关键配置、虚拟内存、蓝屏收集和硬件信息。`,
+    confirmText: "知道了",
+    iconSymbol: "ph-info",
+    linkAction: {
+      action: "repository",
+      label: "GitHub",
+      iconSymbol: "ph-github-logo"
+    }
+  });
+}
+
+async function openProjectRepository() {
+  try {
+    await invoke()("open_project_repository");
+  } catch (error) {
+    try {
+      window.open(PROJECT_REPOSITORY_URL, "_blank", "noopener,noreferrer");
+    } catch {
+      messageEl.textContent = `打开 GitHub 失败：${error}`;
+    }
+  }
 }
 
 const ACTION_RISK_ITEMS = {
@@ -2948,6 +3036,7 @@ async function restoreInitialConfig() {
 refreshButton.addEventListener("click", (event) => runChecks(event.shiftKey ? "full" : "fast"));
 restoreInitialButton?.addEventListener("click", restoreInitialConfig);
 themeToggleButton?.addEventListener("click", toggleTheme);
+aboutButton?.addEventListener("click", showAboutDialog);
 
 for (const item of navItems) {
   item.addEventListener("click", () => switchView(item.dataset.view));
@@ -3028,6 +3117,11 @@ for (const button of firmwareButtons) {
 
 dialogConfirm?.addEventListener("click", () => closeDialog(true));
 dialogCancel?.addEventListener("click", () => closeDialog(false));
+dialogLinkAction?.addEventListener("click", () => {
+  if (dialogLinkAction.dataset.action === "repository") {
+    openProjectRepository();
+  }
+});
 dialogAcknowledge?.addEventListener("change", () => {
   if (dialogConfirm && dialogAcknowledgeWrap && !dialogAcknowledgeWrap.hidden) {
     dialogConfirm.disabled = !dialogAcknowledge.checked;
@@ -3047,6 +3141,7 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
+installDesktopShellGuards();
 applyTheme(document.documentElement.dataset.theme);
 bindWindowControls();
 loadStoredGamingGamePath();

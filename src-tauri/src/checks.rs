@@ -1217,9 +1217,7 @@ fn initial_config_path() -> Result<PathBuf, String> {
             "Could not locate LOCALAPPDATA or APPDATA for initial config storage.".to_string()
         })?;
 
-    Ok(PathBuf::from(base)
-        .join("PC Requirements Checker")
-        .join("initial_config.json"))
+    Ok(PathBuf::from(base).join("知机").join("initial_config.json"))
 }
 
 fn initial_config_from_snapshot(snapshot: &CheckSnapshot) -> InitialConfig {
@@ -3007,7 +3005,7 @@ fn run_admin_action(
 }
 
 fn admin_action_temp_dir(action: &str) -> Result<PathBuf, String> {
-    let base_dir = std::env::temp_dir().join("pc-requirements-checker");
+    let base_dir = std::env::temp_dir().join("zhiji");
     fs::create_dir_all(&base_dir)
         .map_err(|error| format!("Failed to create action temp directory: {error}"))?;
 

@@ -64,6 +64,8 @@ html,
 body {
   height: 100%;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 body {
@@ -80,6 +82,20 @@ button,
 input,
 select {
   font: inherit;
+}
+
+input,
+textarea,
+select,
+[contenteditable=""],
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+img,
+svg {
+  -webkit-user-drag: none;
 }
 
 button {
@@ -171,7 +187,7 @@ select:focus-visible {
 .titlebar-copy {
   align-content: center;
   display: grid;
-  line-height: 1.05;
+  line-height: 1.1;
   min-width: 0;
   -webkit-app-region: drag;
 }
@@ -183,28 +199,6 @@ select:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.titlebar-subtitle {
-  color: #9a9a9a;
-  font-size: 10px;
-  font-weight: 700;
-  margin-top: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.titlebar-pill {
-  background: #181818;
-  border: 1px solid #333333;
-  border-radius: 999px;
-  color: #d4d4d4;
-  font-size: 10px;
-  font-weight: 850;
-  line-height: 1;
-  padding: var(--space-2) var(--space-4);
-  -webkit-app-region: drag;
 }
 
 .titlebar-status {
@@ -450,7 +444,7 @@ select:focus-visible {
   background: #0b0b0b;
   border-right: 1px solid var(--line);
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   padding: var(--space-5);
 }
@@ -468,6 +462,14 @@ select:focus-visible {
   gap: var(--space-2);
   overflow: auto;
   padding-right: 2px;
+}
+
+.sidebar-actions {
+  border-top: 1px solid var(--line-soft);
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
 }
 
 .nav-section-label {
@@ -628,6 +630,8 @@ h2 {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
   height: 34px;
   min-width: 0;
   padding: 0 var(--space-5) 0 calc(var(--space-5) + 23px);
@@ -636,6 +640,8 @@ h2 {
 
 .search-box input::placeholder {
   color: #858585;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .primary-button {
@@ -680,6 +686,12 @@ h2 {
 .theme-toggle-button:hover {
   background: #2a2a2a;
   border-color: #525252;
+}
+
+.about-button {
+  min-width: 62px;
+  padding: 0 var(--space-5);
+  width: 100%;
 }
 
 .danger-button {
@@ -2124,6 +2136,10 @@ h2 {
   min-width: 94px;
 }
 
+.dialog-link-action {
+  margin-right: auto;
+}
+
 :root[data-theme="light"] body {
   background:
     linear-gradient(135deg, #f3f4f6 0%, #ffffff 52%, #f4f4f5 100%);
@@ -2137,23 +2153,8 @@ h2 {
   background: #f4f4f5;
 }
 
-:root[data-theme="light"] .titlebar-mark {
-  background: linear-gradient(135deg, #27272a, #71717a);
-  color: #ffffff;
-}
-
 :root[data-theme="light"] .titlebar-title {
   color: #18181b;
-}
-
-:root[data-theme="light"] .titlebar-subtitle {
-  color: #71717a;
-}
-
-:root[data-theme="light"] .titlebar-pill {
-  background: #ffffff;
-  border-color: #d4d4d8;
-  color: #3f3f46;
 }
 
 :root[data-theme="light"] .titlebar-status {
@@ -2568,7 +2569,7 @@ h2 {
   .sidebar {
     border-bottom: 1px solid var(--line);
     border-right: 0;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto;
     padding: 10px;
   }
@@ -2581,6 +2582,17 @@ h2 {
     display: flex;
     gap: 6px;
     overflow-x: auto;
+  }
+
+  .sidebar-actions {
+    align-self: start;
+    border-top: 0;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .about-button {
+    width: auto;
   }
 
   .nav-section-label {

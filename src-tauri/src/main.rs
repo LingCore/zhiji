@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    pc_requirements_checker_lib::run()
+    zhiji_lib::run()
 }

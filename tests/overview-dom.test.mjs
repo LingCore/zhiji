@@ -5,6 +5,13 @@ import { JSDOM } from "jsdom";
 const html = readFileSync(new URL("../frontend/index.html", import.meta.url), "utf8");
 const js = readFileSync(new URL("../frontend/main.js", import.meta.url), "utf8");
 const css = readFileSync(new URL("../frontend/styles.css", import.meta.url), "utf8");
+const iconPng = readFileSync(new URL("../src-tauri/icons/icon.png", import.meta.url));
+const iconIco = readFileSync(new URL("../src-tauri/icons/icon.ico", import.meta.url));
+const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+const packageLock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
+const licenseText = readFileSync(new URL("../LICENSE", import.meta.url), "utf8");
+const thirdPartyNotices = readFileSync(new URL("../THIRD_PARTY_NOTICES.md", import.meta.url), "utf8");
+const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 const cargoToml = readFileSync(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8");
 const tauriConfig = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
 const tauriCapability = JSON.parse(readFileSync(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"));
@@ -101,6 +108,25 @@ function contrastRatio(foreground, background) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+function pngInfo(buffer) {
+  assert.deepEqual([...buffer.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+    colorType: buffer[25]
+  };
+}
+
+function icoSizes(buffer) {
+  assert.equal(buffer.readUInt16LE(0), 0, "ICO reserved field should be 0");
+  assert.equal(buffer.readUInt16LE(2), 1, "ICO type should be icon");
+  const count = buffer.readUInt16LE(4);
+  return Array.from({ length: count }, (_, index) => {
+    const offset = 6 + index * 16;
+    return [buffer[offset] || 256, buffer[offset + 1] || 256];
+  });
+}
+
 console.log("overview-dom.test.mjs");
 
 check("旧的 Windows 功能面板已删除", () => {
@@ -124,6 +150,8 @@ check("新信息架构包含分组导航和顶部全局操作", () => {
   assert.equal(document.querySelector('[data-view="gaming"]').textContent.includes("竞技模式"), true);
   assert.ok(document.querySelector(".search-box input"), "顶部应有搜索输入框");
   assert.ok(document.getElementById("themeToggleButton"), "顶部应有亮暗主题切换按钮");
+  assert.equal(document.querySelector(".header-actions #aboutButton"), null, "顶部操作区不应再放关于按钮");
+  assert.ok(document.querySelector(".sidebar-actions #aboutButton"), "侧栏底部应有关于按钮");
   assert.ok(document.getElementById("refreshButton"), "顶部应有刷新全部按钮");
   assert.ok(document.getElementById("restoreInitialButton"), "顶部应有恢复初始按钮");
 });
@@ -142,7 +170,8 @@ check("Phosphor 图标以本地 SVG sprite 接入关键导航和操作区", () =
     "ph-arrows-clockwise",
     "ph-arrow-counter-clockwise",
     "ph-shield-check",
-    "ph-hard-drives"
+    "ph-hard-drives",
+    "ph-info"
   ]) {
     assert.ok(document.getElementById(id), `缺少 Phosphor symbol: ${id}`);
   }
@@ -162,6 +191,7 @@ check("Phosphor 图标以本地 SVG sprite 接入关键导航和操作区", () =
     ]
   );
   assert.equal(document.querySelector(".search-box .search-icon use").getAttribute("href"), "#ph-magnifying-glass");
+  assert.equal(document.querySelector("#aboutButton use").getAttribute("href"), "#ph-info");
   assert.equal(document.querySelector("#refreshButton use").getAttribute("href"), "#ph-arrows-clockwise");
   assert.equal(document.querySelector("#restoreInitialButton use").getAttribute("href"), "#ph-arrow-counter-clockwise");
   assert.equal(document.querySelector("#themeToggleIcon use").getAttribute("href"), "#ph-moon");
@@ -170,8 +200,13 @@ check("Phosphor 图标以本地 SVG sprite 接入关键导航和操作区", () =
   assert.match(css, /\.ph-icon\s*\{[\s\S]*fill: currentColor;[\s\S]*height: 16px;/, "图标应继承当前文字颜色");
   assert.match(
     css,
-    /\.search-box input\s*\{[\s\S]*padding: 0 var\(--space-5\) 0 calc\(var\(--space-5\) \+ 23px\);/,
-    "搜索框应为左侧图标预留输入内边距"
+    /\.search-box input\s*\{[\s\S]*font-size: 12px;[\s\S]*padding: 0 var\(--space-5\) 0 calc\(var\(--space-5\) \+ 23px\);/,
+    "搜索框应使用更小字号并为左侧图标预留输入内边距"
+  );
+  assert.match(
+    css,
+    /\.search-box input::placeholder\s*\{[\s\S]*font-size: 12px;[\s\S]*font-weight: 600;/,
+    "搜索框占位文字应保持紧凑"
   );
 });
 
@@ -231,12 +266,72 @@ check("交互动效保持轻量，避免模糊和大面积阴影过渡", () => {
   assert.ok(css.includes("transition: border-color 100ms ease;"), "面板/列表 hover 应保留轻量边框反馈");
 });
 
+check("桌面外壳屏蔽浏览器式交互痕迹", () => {
+  for (const permission of ["core:webview:deny-internal-toggle-devtools"]) {
+    assert.ok(tauriCapability.permissions.includes(permission), `缺少 WebView 限制权限：${permission}`);
+  }
+
+  assert.match(
+    css,
+    /html,\s*[\r\n]+body\s*\{[\s\S]*user-select: none;[\s\S]*-webkit-user-select: none;/,
+    "页面默认不应像网页一样可随手选中文字"
+  );
+  assert.match(
+    css,
+    /input,\s*[\s\S]*textarea,\s*[\s\S]*select,\s*[\s\S]*\[contenteditable=""\],\s*[\s\S]*\[contenteditable="true"\]\s*\{[\s\S]*user-select: text;/,
+    "输入类控件仍应允许选择文字"
+  );
+  assert.match(css, /img,\s*[\r\n]+svg\s*\{[\s\S]*-webkit-user-drag: none;/, "图片和 SVG 不应触发网页拖拽");
+
+  const contextEvent = new dom.window.MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+  document.body.dispatchEvent(contextEvent);
+  assert.equal(contextEvent.defaultPrevented, true, "右键网页菜单应被拦截");
+
+  const dragEvent = new dom.window.Event("dragstart", { bubbles: true, cancelable: true });
+  document.querySelector(".titlebar-mark-icon").dispatchEvent(dragEvent);
+  assert.equal(dragEvent.defaultPrevented, true, "拖拽网页元素应被拦截");
+
+  const titleSelectEvent = new dom.window.Event("selectstart", { bubbles: true, cancelable: true });
+  document.querySelector(".titlebar-title").dispatchEvent(titleSelectEvent);
+  assert.equal(titleSelectEvent.defaultPrevented, true, "普通界面文字不应触发网页选区");
+
+  const inputSelectEvent = new dom.window.Event("selectstart", { bubbles: true, cancelable: true });
+  document.querySelector(".search-box input").dispatchEvent(inputSelectEvent);
+  assert.equal(inputSelectEvent.defaultPrevented, false, "搜索输入框仍应允许选择文字");
+
+  for (const event of [
+    new dom.window.KeyboardEvent("keydown", { key: "F5", bubbles: true, cancelable: true }),
+    new dom.window.KeyboardEvent("keydown", { key: "r", ctrlKey: true, bubbles: true, cancelable: true }),
+    new dom.window.KeyboardEvent("keydown", { key: "ArrowLeft", altKey: true, bubbles: true, cancelable: true })
+  ]) {
+    dom.window.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true, `${event.key} 网页快捷键应被拦截`);
+  }
+});
+
 check("发布构建启用体积优化 profile", () => {
   assert.ok(cargoToml.includes("[profile.release]"), "Cargo.toml 应配置 release profile");
   assert.ok(cargoToml.includes("lto = true"), "release 应开启 LTO");
   assert.ok(cargoToml.includes("codegen-units = 1"), "release 应减少 codegen units 以优化体积");
   assert.ok(cargoToml.includes("panic = \"abort\""), "release 应使用 abort panic strategy");
   assert.ok(cargoToml.includes("strip = \"symbols\""), "release 应剥离符号");
+});
+
+check("发布身份不再暴露旧工程名", () => {
+  assert.equal(packageJson.name, "zhiji");
+  assert.equal(packageLock.name, "zhiji");
+  assert.equal(packageLock.packages[""].name, "zhiji");
+  assert.match(cargoToml, /\[package\][\s\S]*name = "zhiji"/);
+  assert.match(cargoToml, /\[lib\][\s\S]*name = "zhiji_lib"/);
+});
+
+check("开源协议和第三方声明已写入仓库", () => {
+  assert.ok(licenseText.startsWith("MIT License"));
+  assert.ok(licenseText.includes("Copyright (c) 2026 LingCore"));
+  assert.ok(readme.includes("GitHub: https://github.com/LingCore/zhiji"));
+  assert.ok(readme.includes("The project source code is released under the MIT License."));
+  assert.ok(thirdPartyNotices.includes("BlueScreenView"));
+  assert.ok(thirdPartyNotices.includes("not covered by this project's"));
 });
 
 await checkAsync("竞技模式选择游戏 exe 后刷新全屏优化状态", async () => {
@@ -249,6 +344,11 @@ await checkAsync("竞技模式选择游戏 exe 后刷新全屏优化状态", asy
 check("Tauri 主窗口按无边框方案配置", () => {
   const mainWindow = tauriConfig.app.windows.find((windowConfig) => windowConfig.label === "main");
   assert.ok(mainWindow, "必须存在 label=main 的窗口配置");
+  assert.equal(tauriConfig.productName, "知机");
+  assert.equal(tauriConfig.mainBinaryName, "Zhiji");
+  assert.equal(tauriConfig.identifier, "com.lingcore.zhiji");
+  assert.deepEqual(tauriConfig.bundle.targets, ["nsis"]);
+  assert.equal(mainWindow.title, "知机");
   assert.equal(mainWindow.decorations, false, "无边框窗口必须关闭 decorations");
   assert.equal(mainWindow.shadow, true, "Windows 11 无边框窗口应保留 shadow");
   assert.equal(mainWindow.transparent, false, "不做 Mica/Acrylic 时 transparent 应保持 false");
@@ -265,6 +365,28 @@ check("Tauri 主窗口按无边框方案配置", () => {
   ]) {
     assert.ok(tauriCapability.permissions.includes(permission), `缺少无边框窗口权限：${permission}`);
   }
+  assert.equal(tauriConfig.bundle.windows.nsis.installerIcon, "icons/icon.ico");
+  assert.equal(tauriConfig.bundle.windows.nsis.uninstallerIcon, "icons/icon.ico");
+});
+
+check("应用图标复用标题栏 Logo 的浅色芯片风格", () => {
+  const png = pngInfo(iconPng);
+  assert.equal(png.width, 256);
+  assert.equal(png.height, 256);
+  assert.equal(png.colorType, 6, "PNG 图标应保留透明通道");
+  assert.deepEqual(icoSizes(iconIco), [
+    [16, 16],
+    [32, 32],
+    [48, 48],
+    [64, 64],
+    [128, 128],
+    [256, 256]
+  ]);
+  assert.match(
+    css,
+    /\.titlebar-mark\s*\{[\s\S]*background: linear-gradient\(135deg, #f5f5f5, #bdbdbd\);[\s\S]*color: #050505;/,
+    "标题栏 Logo 应继续使用浅灰渐变底和深色芯片图标"
+  );
 });
 
 check("自定义标题栏具备拖拽区和窗口控制按钮", () => {
@@ -272,20 +394,22 @@ check("自定义标题栏具备拖拽区和窗口控制按钮", () => {
   assert.ok(titlebar, "应存在自定义标题栏");
   assert.equal(titlebar.getAttribute("data-tauri-drag-region"), "", "标题栏应声明 Tauri 拖拽区域");
   assert.equal(document.querySelector(".titlebar-left").getAttribute("data-tauri-drag-region"), "", "标题栏左侧也应可拖拽");
-  assert.equal(document.querySelector(".titlebar-title").textContent, "PC Requirements Checker");
-  assert.equal(document.querySelector(".titlebar-subtitle").textContent, "Windows 诊断控制台");
-  assert.equal(document.querySelector(".titlebar-pill").textContent, "Tauri / Rust");
+  assert.equal(document.querySelector(".titlebar-title").textContent, "知机");
+  assert.equal(document.querySelector(".titlebar-subtitle"), null, "标题栏左侧不应再显示第二行副标题");
+  assert.equal(document.querySelector(".titlebar-pill"), null, "标题栏不应显示 Tauri / Rust 技术标签");
   assert.ok(document.querySelector(".titlebar-status #message"), "运行状态应移动到标题栏");
   assert.equal(document.querySelector(".sidebar-footer"), null, "侧栏底部运行状态卡片应移除");
   assert.equal(document.querySelector(".sidebar .brand"), null, "侧栏不应再保留重复的品牌 logo 区域");
   assert.equal(document.querySelectorAll(".sidebar-system .meta-chip").length, 1, "侧栏状态区只保留管理员状态");
+  assert.equal(document.querySelectorAll(".sidebar-actions #aboutButton").length, 1, "侧栏操作区应只放一个关于入口");
   assert.equal(document.getElementById("windowMinimizeButton").getAttribute("aria-label"), "最小化窗口");
   assert.equal(document.getElementById("windowMaximizeButton").getAttribute("aria-label"), "最大化窗口");
   assert.equal(document.getElementById("windowCloseButton").getAttribute("aria-label"), "关闭窗口");
   assert.ok(css.includes(".titlebar {\n  align-items: center;"), "应存在 titlebar 样式块");
   assert.match(css, /\.titlebar\s*\{[\s\S]*flex: 0 0 42px;[\s\S]*height: 42px;/, "标题栏高度应更接近桌面应用标题栏");
-  assert.match(css, /\.titlebar-copy\s*\{[\s\S]*display: grid;/, "标题栏应用名和副标题应成组排版");
-  assert.match(css, /\.titlebar-pill\s*\{[\s\S]*border-radius: 999px;/, "标题栏技术标签应使用紧凑胶囊样式");
+  assert.match(css, /\.titlebar-copy\s*\{[\s\S]*display: grid;/, "标题栏应用名应保持单独成组排版");
+  assert.ok(!css.includes(".titlebar-subtitle"), "标题栏副标题样式应移除");
+  assert.ok(!css.includes(".titlebar-pill"), "标题栏技术标签样式应移除");
   assert.match(css, /\.window-icon-minimize::before\s*\{[\s\S]*background: currentColor;/, "最小化图标应由 CSS 绘制");
   assert.match(css, /\.window-icon-maximize\s*\{[\s\S]*border: 1\.5px solid currentColor;/, "最大化图标应由 CSS 绘制");
   assert.match(css, /\.window-icon-close::before,[\s\S]*\.window-icon-close::after\s*\{[\s\S]*background: currentColor;/, "关闭图标应由 CSS 绘制");
@@ -302,7 +426,8 @@ check("自定义标题栏具备拖拽区和窗口控制按钮", () => {
   );
   assert.match(css, /\.titlebar-button\s*\{[\s\S]*-webkit-app-region: no-drag;/, "标题栏按钮必须排除拖拽区域");
   assert.match(css, /\.app-shell\s*\{[\s\S]*grid-template-columns: 188px minmax\(0, 1fr\);[\s\S]*min-height: 0;/, "侧栏宽度应收窄并让内容区占据剩余空间");
-  assert.match(css, /\.sidebar\s*\{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\);/, "侧栏应只保留管理员状态和导航两行");
+  assert.match(css, /\.sidebar\s*\{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\) auto;/, "侧栏应保留管理员状态、导航和底部操作三行");
+  assert.match(css, /\.sidebar-actions\s*\{[\s\S]*border-top: 1px solid var\(--line-soft\);/, "侧栏底部操作区应与导航分隔");
 });
 
 await checkAsync("标题栏按钮会调用 Tauri window API", async () => {
@@ -355,6 +480,32 @@ check("亮暗主题切换会更新根属性、按钮状态和本地保存", () =
   assert.equal(button.getAttribute("aria-pressed"), "true");
   assert.equal(document.querySelector("#themeToggleIcon use").getAttribute("href"), "#ph-moon");
   assert.equal(dom.window.localStorage.getItem("pc-requirements-theme"), "dark");
+});
+
+await checkAsync("关于按钮会弹出紧凑作者信息", async () => {
+  document.getElementById("aboutButton").click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const dialog = document.getElementById("appDialog");
+  assert.ok(dialog.classList.contains("open"), "关于弹窗应打开");
+  assert.equal(document.getElementById("dialogEyebrow").textContent, "关于");
+  assert.equal(document.getElementById("dialogTitle").textContent, "知机");
+  assert.ok(document.getElementById("dialogBody").textContent.includes("作者：LingCore"));
+  assert.ok(document.getElementById("dialogBody").textContent.includes("开源协议：MIT"));
+  assert.ok(document.getElementById("dialogBody").textContent.includes("https://github.com/LingCore/zhiji"));
+  assert.equal(document.querySelector("#appDialog .dialog-icon use").getAttribute("href"), "#ph-info");
+  assert.equal(document.getElementById("dialogLinkAction").hidden, false, "关于弹窗应显示 GitHub 按钮");
+  assert.equal(document.getElementById("dialogLinkActionLabel").textContent, "GitHub");
+  assert.equal(document.querySelector("#dialogLinkAction use").getAttribute("href"), "#ph-github-logo");
+  assert.equal(document.getElementById("dialogCancel").hidden, true, "关于弹窗不需要取消按钮");
+
+  document.getElementById("dialogLinkAction").click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(dom.window.__lastOpenedProjectUrl, "https://github.com/LingCore/zhiji");
+
+  document.getElementById("dialogConfirm").click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(dialog.classList.contains("open"), false, "确认后关于弹窗应关闭");
 });
 
 check("亮色主题使用中性灰白界面且状态颜色可读", () => {

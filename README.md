@@ -1,4 +1,4 @@
-# PC Requirements Checker
+# 知机
 
 A small Tauri + Rust desktop app for checking the Windows requirements used by this PC setup:
 
@@ -50,6 +50,10 @@ npm run tauri build
 
 The generated installer/bundle will be under `src-tauri\target\release\bundle`.
 
+## Repository
+
+GitHub: https://github.com/LingCore/zhiji
+
 ## Gaming Optimizer
 
 Open `竞技模式` to apply low-risk competitive FPS optimizations that are separate from power plans:
@@ -64,12 +68,17 @@ Current local environment installed on this PC:
 
 - Node.js/npm: `C:\Tools\nodejs`
 - Rust/Cargo: `C:\Users\bob\.cargo`, `C:\Users\bob\.rustup`
-- Built executable: `src-tauri\target\release\pc-requirements-checker.exe`
-- MSI installer: `src-tauri\target\release\bundle\msi\PC Requirements Checker_0.1.0_x64_en-US.msi`
-- NSIS installer: `src-tauri\target\release\bundle\nsis\PC Requirements Checker_0.1.0_x64-setup.exe`
+- Built executable: `src-tauri\target\release\Zhiji.exe`
+- NSIS installer: `src-tauri\target\release\bundle\nsis\知机_0.1.0_x64-setup.exe`
 
 ## Notes
 
 - Run the app as Administrator for the most reliable Hyper-V, Secure Boot, TPM, and BCD results.
 - Once Hyper-V is running, some Windows CPU virtualization fields may report `False`; the app treats an already-running hypervisor as proof that hardware virtualization is available and in use.
 - To enter BIOS on the current GIGABYTE board, restart and press `Delete`; use `F2` to switch to Advanced Mode if needed.
+
+## License
+
+The project source code is released under the MIT License. See `LICENSE`.
+
+Bundled third-party tools are listed in `THIRD_PARTY_NOTICES.md`.

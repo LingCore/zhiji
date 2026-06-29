@@ -1,8 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "PC Requirements Checker",
+  "productName": "知机",
+  "mainBinaryName": "Zhiji",
   "version": "0.1.0",
-  "identifier": "com.local.pc.requirements.checker",
+  "identifier": "com.lingcore.zhiji",
   "build": {
     "frontendDist": "../frontend"
   },
@@ -11,7 +12,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "PC Requirements Checker",
+        "title": "知机",
         "width": 1280,
         "height": 760,
         "minWidth": 1100,
@@ -39,7 +40,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis"
+    ],
     "resources": [
       "resources/tools/BlueScreenView.exe",
       "resources/tools/bluescreenview155.exe"
@@ -47,6 +50,12 @@
     "icon": [
       "icons/icon.ico",
       "icons/icon.png"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
+      }
+    }
   }
 }

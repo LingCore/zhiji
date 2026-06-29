@@ -1,12 +1,12 @@
 [package]
-name = "pc-requirements-checker"
+name = "zhiji"
 version = "0.1.0"
 description = "Windows PC requirements checker"
 authors = ["bob"]
 edition = "2021"
 
 [lib]
-name = "pc_requirements_checker_lib"
+name = "zhiji_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
