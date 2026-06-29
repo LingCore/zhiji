@@ -75,6 +75,12 @@ pub struct MonitorIdentityOverrideRequest {
     rollback_timeout_secs: Option<u64>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct MonitorIdentityReenumerateRequest {
+    monitor_device_instance_id: String,
+    rollback_timeout_secs: Option<u64>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct MonitorIdentityActionResult {
     action: String,
@@ -432,6 +438,152 @@ pub fn monitor_identity_restore_change(
         message: "已还原显示器身份覆盖。".to_string(),
         output,
         pending_confirmation: None,
+    })
+}
+
+#[tauri::command]
+pub fn monitor_identity_reenumerate_device(
+    app: tauri::AppHandle,
+    request: MonitorIdentityReenumerateRequest,
+) -> Result<MonitorIdentityActionResult, String> {
+    let config_dir = app_config_dir(&app)?;
+    sync_watchdog_outcomes(&config_dir)?;
+
+    let monitor_device_instance_id = request.monitor_device_instance_id.trim().to_string();
+    if monitor_device_instance_id.is_empty() {
+        return Err("必须选择一个显示器设备实例。".to_string());
+    }
+    let timeout_secs = request
+        .rollback_timeout_secs
+        .unwrap_or(DEFAULT_ROLLBACK_TIMEOUT_SECS)
+        .clamp(10, 120);
+    let snapshots = collect_monitor_snapshots()?;
+    let snapshot = snapshots
+        .into_iter()
+        .find(|monitor| {
+            monitor
+                .device_instance_id
+                .eq_ignore_ascii_case(&monitor_device_instance_id)
+        })
+        .ok_or_else(|| "所选显示器已不存在。".to_string())?;
+    let registry_path = snapshot
+        .registry_path
+        .clone()
+        .ok_or_else(|| "所选显示器没有可写入的 Device Parameters 注册表路径。".to_string())?;
+    let original_edid_hex = snapshot
+        .edid_hex
+        .clone()
+        .ok_or_else(|| "所选显示器没有可读取的原始 EDID。".to_string())?;
+    let original_edid = hex_to_bytes(&original_edid_hex)?;
+    let original_identity = parse_edid_identity(&original_edid)?;
+    let current_edid_hex = snapshot
+        .override_edid_hex
+        .clone()
+        .unwrap_or_else(|| original_edid_hex.clone());
+    let current_edid = hex_to_bytes(&current_edid_hex)?;
+    let target_identity = parse_edid_identity(&current_edid)?;
+    let latest_inf_driver =
+        latest_installed_inf_driver_for_monitor(&config_dir, &snapshot.device_instance_id)?;
+
+    let now = chrono::Local::now();
+    let expires_at = now + chrono::Duration::seconds(timeout_secs as i64);
+    let change_id = format!(
+        "monitor-reenum-{}",
+        now.timestamp_nanos_opt()
+            .unwrap_or_else(|| now.timestamp_millis())
+    );
+    let rollback_token = format!(
+        "reenum-{}-{}",
+        std::process::id(),
+        now.timestamp_nanos_opt()
+            .unwrap_or_else(|| now.timestamp_millis())
+    );
+    let watchdog_dir = config_dir.join(WATCHDOG_DIR).join(&rollback_token);
+    fs::create_dir_all(&watchdog_dir)
+        .map_err(|error| format!("无法创建显示器重枚举回滚目录：{error}"))?;
+    let confirm_file_path = watchdog_dir.join("keep-change.confirmed");
+    let watchdog_status_path = watchdog_dir.join("watchdog.status");
+    let watchdog_script_path = watchdog_dir.join("reenumerate-watchdog.ps1");
+
+    let watchdog_script = build_reenumerate_watchdog_script(ReenumerateWatchdogScriptArgs {
+        timeout_secs,
+        confirm_file_path: &confirm_file_path,
+        status_path: &watchdog_status_path,
+        registry_path: &registry_path,
+        device_instance_id: &snapshot.device_instance_id,
+        published_driver_inf: latest_inf_driver.as_deref(),
+    });
+    fs::write(&watchdog_script_path, watchdog_script)
+        .map_err(|error| format!("无法写入显示器重枚举回滚脚本：{error}"))?;
+
+    let mut record = MonitorIdentityChangeRecord {
+        id: change_id.clone(),
+        status: "pending".to_string(),
+        apply_mode: "reenumerate_device".to_string(),
+        applied_at: now.to_rfc3339(),
+        confirmed_at: None,
+        rolled_back_at: None,
+        rollback_token: rollback_token.clone(),
+        expires_at: expires_at.to_rfc3339(),
+        monitor_device_instance_id: snapshot.device_instance_id.clone(),
+        original_hardware_id: snapshot.hardware_id.clone(),
+        target_hardware_id: target_identity.windows_hardware_id.clone(),
+        registry_path,
+        original_identity,
+        target_identity,
+        original_edid_hex,
+        previous_override_edid_hex: None,
+        new_override_edid_hex: current_edid_hex,
+        generated_inf_path: String::new(),
+        published_driver_inf: latest_inf_driver,
+        published_driver_name_path: None,
+        confirm_file_path: confirm_file_path.to_string_lossy().to_string(),
+        watchdog_status_path: watchdog_status_path.to_string_lossy().to_string(),
+        output: String::new(),
+    };
+    append_change_record(&config_dir, record.clone())?;
+
+    let reenumerate_script =
+        build_reenumerate_device_script(&snapshot.device_instance_id, &watchdog_script_path);
+    let output = match run_admin_script("monitor_identity_reenumerate_device", &reenumerate_script)
+    {
+        Ok(output) => output,
+        Err(error) => {
+            let _ = remove_change_record(&config_dir, &change_id);
+            return Err(error);
+        }
+    };
+
+    record.output = output.clone();
+    update_change_record(&config_dir, record.clone())?;
+
+    let active_count = collect_monitor_snapshots()
+        .map(|items| items.into_iter().filter(|item| item.active).count())
+        .unwrap_or(0);
+    if active_count == 0 {
+        let _ = run_admin_script(
+            "monitor_identity_reenumerate_immediate_rollback",
+            &build_reenumerate_rollback_body(
+                &record.registry_path,
+                record.published_driver_inf.as_deref(),
+                &record.monitor_device_instance_id,
+            ),
+        );
+        mark_change_rolled_back(&config_dir, &change_id)?;
+        return Err(
+            "强制重枚举后 Windows 报告活动显示器数量为 0；已请求回滚到物理 EDID。".to_string(),
+        );
+    }
+
+    let pending = pending_confirmation_for_record(&record);
+    Ok(MonitorIdentityActionResult {
+        action: "monitor_identity_reenumerate_device".to_string(),
+        succeeded: true,
+        message: format!(
+            "已强制重枚举显示器。请在 {timeout_secs} 秒内确认，否则会移除本程序覆盖并回到物理 EDID。"
+        ),
+        output,
+        pending_confirmation: Some(pending),
     })
 }
 
@@ -1209,6 +1361,125 @@ $scan.Trim()
     )
 }
 
+fn build_reenumerate_device_script(
+    device_instance_id: &str,
+    watchdog_script_path: &Path,
+) -> String {
+    let device_instance_id = escape_ps_single(device_instance_id);
+    let watchdog_script_path = escape_ps_single(&watchdog_script_path.to_string_lossy());
+    format!(
+        r#"
+Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','{watchdog_script_path}') -WindowStyle Hidden | Out-Null
+"已启动 30 秒强制重枚举回滚保护进程。"
+
+$remove = & pnputil /remove-device '{device_instance_id}' 2>&1 | Out-String
+$removeExit = $LASTEXITCODE
+"pnputil /remove-device 输出："
+$remove.Trim()
+
+$scan = & pnputil /scan-devices 2>&1 | Out-String
+$scanExit = $LASTEXITCODE
+"pnputil /scan-devices 输出："
+$scan.Trim()
+
+Start-Sleep -Seconds 2
+$drivers = & pnputil /enum-devices /instanceid '{device_instance_id}' /drivers 2>&1 | Out-String
+"pnputil /enum-devices /drivers 输出："
+$drivers.Trim()
+
+if ($removeExit -ne 0 -or $scanExit -ne 0) {{
+  throw "强制重枚举命令返回失败；后台保护进程会在未确认时回滚。"
+}}
+"#
+    )
+}
+
+struct ReenumerateWatchdogScriptArgs<'a> {
+    timeout_secs: u64,
+    confirm_file_path: &'a Path,
+    status_path: &'a Path,
+    registry_path: &'a str,
+    device_instance_id: &'a str,
+    published_driver_inf: Option<&'a str>,
+}
+
+fn build_reenumerate_watchdog_script(args: ReenumerateWatchdogScriptArgs<'_>) -> String {
+    let confirm_file_path = escape_ps_single(&args.confirm_file_path.to_string_lossy());
+    let status_path = escape_ps_single(&args.status_path.to_string_lossy());
+    let rollback_body = build_reenumerate_rollback_body(
+        args.registry_path,
+        args.published_driver_inf,
+        args.device_instance_id,
+    );
+    format!(
+        r#"
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+$confirmPath = '{confirm_file_path}'
+$statusPath = '{status_path}'
+
+Start-Sleep -Seconds {timeout}
+try {{
+  if (Test-Path -LiteralPath $confirmPath) {{
+    "confirmed" | Out-File -FilePath $statusPath -Encoding UTF8
+    exit 0
+  }}
+
+{rollback_body}
+
+  "rolled_back" | Out-File -FilePath $statusPath -Encoding UTF8
+  exit 0
+}} catch {{
+  ("rollback_failed`n" + $_.Exception.Message) | Out-File -FilePath $statusPath -Encoding UTF8
+  exit 1
+}}
+"#,
+        timeout = args.timeout_secs
+    )
+}
+
+fn build_reenumerate_rollback_body(
+    registry_path: &str,
+    published_driver_inf: Option<&str>,
+    device_instance_id: &str,
+) -> String {
+    let registry_path = escape_ps_single(registry_path);
+    let device_instance_id = escape_ps_single(device_instance_id);
+    let driver_restore_body = published_driver_inf
+        .filter(|name| is_published_driver_inf_name(name))
+        .map(|name| {
+            let name = escape_ps_single(name);
+            format!(
+                r#"
+$delete = & pnputil /delete-driver '{name}' /uninstall /force 2>&1 | Out-String
+"pnputil /delete-driver 输出："
+$delete.Trim()
+"#
+            )
+        })
+        .unwrap_or_default();
+
+    format!(
+        r#"
+$overridePath = 'HKLM:\{registry_path}\EDID_OVERRIDE'
+if (Test-Path -LiteralPath $overridePath) {{
+  Remove-ItemProperty -LiteralPath $overridePath -Name '0' -ErrorAction SilentlyContinue
+  try {{ Remove-Item -LiteralPath $overridePath -Force -ErrorAction SilentlyContinue }} catch {{}}
+}}
+"已删除本程序 EDID_OVERRIDE，准备回到物理 EDID。"
+{driver_restore_body}
+
+$scan = & pnputil /scan-devices 2>&1 | Out-String
+"pnputil /scan-devices 输出："
+$scan.Trim()
+
+$restart = & pnputil /restart-device '{device_instance_id}' 2>&1 | Out-String
+"pnputil /restart-device 输出："
+$restart.Trim()
+"#
+    )
+}
+
 fn collect_monitor_snapshots() -> Result<Vec<MonitorRegistrySnapshot>, String> {
     #[cfg(not(windows))]
     {
@@ -1363,6 +1634,29 @@ fn latest_restorable_change_id(config_dir: &Path) -> Result<String, String> {
         .find(|record| record.status != "rolled_back")
         .map(|record| record.id.clone())
         .ok_or_else(|| "没有可还原的显示器身份变更记录。".to_string())
+}
+
+fn latest_installed_inf_driver_for_monitor(
+    config_dir: &Path,
+    monitor_device_instance_id: &str,
+) -> Result<Option<String>, String> {
+    let changes = load_change_log(config_dir)?;
+    Ok(changes
+        .iter()
+        .rev()
+        .find(|record| {
+            record.status != "rolled_back"
+                && record.apply_mode == "inf_driver"
+                && record
+                    .monitor_device_instance_id
+                    .eq_ignore_ascii_case(monitor_device_instance_id)
+                && record
+                    .published_driver_inf
+                    .as_deref()
+                    .map(is_published_driver_inf_name)
+                    .unwrap_or(false)
+        })
+        .and_then(|record| record.published_driver_inf.clone()))
 }
 
 fn mark_change_rolled_back(config_dir: &Path, change_id: &str) -> Result<(), String> {
@@ -1730,6 +2024,30 @@ mod tests {
         assert!(script.contains("Remove-ItemProperty"));
         assert!(script.contains("rolled_back"));
         assert!(script.contains("pnputil /restart-device"));
+    }
+
+    #[test]
+    fn reenumerate_scripts_remove_scan_and_roll_back_to_physical_edid() {
+        let reenumerate = build_reenumerate_device_script(
+            r"DISPLAY\LHC906A\ABC",
+            Path::new(r"C:\Temp\reenumerate-watchdog.ps1"),
+        );
+        assert!(reenumerate.contains("pnputil /remove-device"));
+        assert!(reenumerate.contains("pnputil /scan-devices"));
+        assert!(reenumerate.contains("reenumerate-watchdog.ps1"));
+
+        let watchdog = build_reenumerate_watchdog_script(ReenumerateWatchdogScriptArgs {
+            timeout_secs: 30,
+            confirm_file_path: Path::new("C:\\Temp\\keep.confirmed"),
+            status_path: Path::new("C:\\Temp\\watchdog.status"),
+            registry_path: r"SYSTEM\CurrentControlSet\Enum\DISPLAY\LHC906A\ABC\Device Parameters",
+            device_instance_id: r"DISPLAY\LHC906A\ABC",
+            published_driver_inf: Some("oem23.inf"),
+        });
+        assert!(watchdog.contains("Start-Sleep -Seconds 30"));
+        assert!(watchdog.contains("Remove-ItemProperty"));
+        assert!(watchdog.contains("pnputil /delete-driver 'oem23.inf' /uninstall /force"));
+        assert!(watchdog.contains("rolled_back"));
     }
 
     #[test]

@@ -811,11 +811,13 @@ check("显示器身份面板包含 EDID override 和 30 秒自动回滚控制", 
   assert.ok(document.getElementById("monitorProductInput"), "应有 Product Code 输入");
   assert.ok(document.getElementById("monitorIdentityApplyButton"), "应有应用覆盖按钮");
   assert.ok(document.getElementById("monitorIdentityInstallInfButton"), "应有安装 INF 覆盖按钮");
+  assert.ok(document.getElementById("monitorIdentityReenumerateButton"), "应有强制重枚举按钮");
   assert.ok(document.getElementById("monitorIdentityConfirmButton"), "应有保留更改按钮");
   assert.ok(document.getElementById("monitorIdentityRollbackButton"), "应有回滚按钮");
   assert.equal(pane.textContent.includes("30 秒自动回滚"), true);
   assert.ok(js.includes("monitor_identity_apply_override"), "前端应调用显示器身份应用命令");
   assert.ok(js.includes("monitor_identity_install_inf_override"), "前端应调用显示器身份 INF 安装命令");
+  assert.ok(js.includes("monitor_identity_reenumerate_device"), "前端应调用显示器强制重枚举命令");
   assert.ok(js.includes("monitor_identity_confirm_override"), "前端应调用显示器身份确认命令");
   assert.ok(js.includes("monitor_identity_restore_change"), "前端应调用显示器身份还原命令");
 });
@@ -870,6 +872,28 @@ await checkAsync("显示器身份 INF 预览安装后进入待确认并记录驱
   assert.match(document.getElementById("monitorIdentityPendingState").textContent, /待确认：\d+s/);
   assert.equal(document.getElementById("monitorIdentityLog").textContent.includes("INF"), true);
   assert.equal(document.getElementById("monitorIdentityLog").textContent.includes("oem42.inf"), true);
+
+  document.getElementById("monitorIdentityConfirmButton").click();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+});
+
+await checkAsync("显示器身份强制重枚举预览进入待确认并说明回滚", async () => {
+  document.querySelector('[data-view="monitorIdentity"]').click();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  document.getElementById("monitorIdentityReenumerateButton").click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(document.getElementById("dialogTitle").textContent, "确认强制重枚举显示器？");
+  assert.equal(document.getElementById("dialogBody").textContent.includes("pnputil /remove-device"), true);
+  const acknowledge = document.getElementById("dialogAcknowledge");
+  acknowledge.checked = true;
+  acknowledge.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  document.getElementById("dialogConfirm").click();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.match(document.getElementById("monitorIdentityPendingState").textContent, /待确认：\d+s/);
+  assert.equal(document.getElementById("monitorIdentityLog").textContent.includes("重枚举"), true);
 
   document.getElementById("monitorIdentityConfirmButton").click();
   await new Promise((resolve) => setTimeout(resolve, 50));

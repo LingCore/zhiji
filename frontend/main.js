@@ -422,6 +422,43 @@ const invoke = () => {
       };
     }
 
+    if (command === "monitor_identity_reenumerate_device") {
+      const now = Date.now();
+      const pending = {
+        token: `preview-reenum-${now}`,
+        change_id: `preview-reenum-change-${now}`,
+        monitor_device_instance_id: args?.request?.monitor_device_instance_id || "DISPLAY\\LHC906A\\PREVIEW",
+        expires_at: new Date(now + 30_000).toISOString(),
+        seconds_remaining: 30
+      };
+      monitorIdentityPreviewStatus.pending_confirmation = pending;
+      monitorIdentityPreviewStatus.change_count += 1;
+      monitorIdentityPreviewStatus.changes.unshift({
+        id: pending.change_id,
+        status: "pending",
+        apply_mode: "reenumerate_device",
+        applied_at: new Date(now).toISOString(),
+        confirmed_at: null,
+        rolled_back_at: null,
+        rollback_token: pending.token,
+        expires_at: pending.expires_at,
+        monitor_device_instance_id: pending.monitor_device_instance_id,
+        original_hardware_id: "MONITOR\\LHC906A",
+        target_hardware_id: "MONITOR\\BUX0F04",
+        registry_path: "预览模式注册表路径",
+        generated_inf_path: "",
+        published_driver_inf: "oem42.inf",
+        output: "仅预览：这里会执行 pnputil /remove-device 和 /scan-devices"
+      });
+      return {
+        action: "monitor_identity_reenumerate_device",
+        succeeded: true,
+        message: "预览模式：已强制重枚举显示器。",
+        output: "仅预览",
+        pending_confirmation: pending
+      };
+    }
+
     if (command === "monitor_identity_restore_change") {
       monitorIdentityPreviewStatus.pending_confirmation = null;
       for (const change of monitorIdentityPreviewStatus.changes) {
@@ -563,6 +600,7 @@ const monitorSerialInput = document.querySelector("#monitorSerialInput");
 const monitorNameInput = document.querySelector("#monitorNameInput");
 const monitorIdentityApplyButton = document.querySelector("#monitorIdentityApplyButton");
 const monitorIdentityInstallInfButton = document.querySelector("#monitorIdentityInstallInfButton");
+const monitorIdentityReenumerateButton = document.querySelector("#monitorIdentityReenumerateButton");
 const monitorIdentityRandomButton = document.querySelector("#monitorIdentityRandomButton");
 const monitorIdentityRefreshButton = document.querySelector("#monitorIdentityRefreshButton");
 const monitorIdentityConfirmButton = document.querySelector("#monitorIdentityConfirmButton");
@@ -602,6 +640,7 @@ const gamingPanelButtons = [
 const monitorIdentityPanelButtons = [
   monitorIdentityApplyButton,
   monitorIdentityInstallInfButton,
+  monitorIdentityReenumerateButton,
   monitorIdentityRandomButton,
   monitorIdentityRefreshButton,
   monitorIdentityConfirmButton,
@@ -1095,7 +1134,12 @@ function renderMonitorIdentityLog(changes = monitorIdentityStatus?.changes || []
   for (const change of changes.slice(0, 5)) {
     const item = document.createElement("article");
     const title = document.createElement("strong");
-    const mode = change.apply_mode === "inf_driver" ? "INF" : "注册表";
+    const mode =
+      change.apply_mode === "inf_driver"
+        ? "INF"
+        : change.apply_mode === "reenumerate_device"
+          ? "重枚举"
+          : "注册表";
     title.textContent = `${change.status || "unknown"} · ${mode} · ${change.target_hardware_id || "-"}`;
     const body = document.createElement("p");
     body.textContent = `${change.monitor_device_instance_id || "-"} · ${change.applied_at || "-"}`;
@@ -1356,6 +1400,58 @@ async function applyMonitorIdentityOverride(mode = "registry") {
 
 function installMonitorIdentityInfOverride() {
   void applyMonitorIdentityOverride("inf");
+}
+
+async function reenumerateMonitorIdentityDevice() {
+  const monitor = selectedMonitorIdentity();
+  if (!monitor) {
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = "请选择一个显示器。";
+    }
+    return;
+  }
+
+  const confirmed = await confirmDialog({
+    variant: "danger",
+    eyebrow: "显示器重枚举",
+    title: "确认强制重枚举显示器？",
+    body: "程序会执行 pnputil /remove-device 和 /scan-devices，让 Windows 重新枚举当前显示器。操作后必须在 30 秒内点击保留更改，否则后台保护进程会移除本程序覆盖并回到物理 EDID。",
+    riskItems: [
+      "显示器可能短暂闪屏、黑屏或重新排列。",
+      "不会手动删除整棵 Enum\\DISPLAY 注册表项，只使用 pnputil 官方设备移除和扫描命令。",
+      "如果 30 秒内无法确认，会删除本程序 EDID_OVERRIDE，并卸载本程序记录的 oem*.inf 驱动包。"
+    ],
+    requireAcknowledge: true,
+    details: monitor.device_instance_id,
+    confirmText: "重枚举并启动回滚计时"
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+  if (monitorIdentityMessageEl) {
+    monitorIdentityMessageEl.textContent = "正在强制重枚举显示器...";
+  }
+  try {
+    await waitForNextPaint();
+    const result = await invoke()("monitor_identity_reenumerate_device", {
+      request: {
+        monitor_device_instance_id: monitor.device_instance_id,
+        rollback_timeout_secs: 30
+      }
+    });
+    await refreshMonitorIdentityStatus();
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = result.message || "已强制重枚举，等待 30 秒确认。";
+    }
+  } catch (error) {
+    if (monitorIdentityMessageEl) {
+      monitorIdentityMessageEl.textContent = `强制重枚举失败：${error}`;
+    }
+  } finally {
+    setBusy(false);
+  }
 }
 
 async function confirmMonitorIdentityOverride() {
@@ -2880,6 +2976,7 @@ monitorIdentityRandomButton?.addEventListener("click", randomizeMonitorIdentityF
 monitorIdentityRefreshButton?.addEventListener("click", refreshMonitorIdentityStatus);
 monitorIdentityApplyButton?.addEventListener("click", () => applyMonitorIdentityOverride("registry"));
 monitorIdentityInstallInfButton?.addEventListener("click", installMonitorIdentityInfOverride);
+monitorIdentityReenumerateButton?.addEventListener("click", reenumerateMonitorIdentityDevice);
 monitorIdentityConfirmButton?.addEventListener("click", confirmMonitorIdentityOverride);
 monitorIdentityRollbackButton?.addEventListener("click", restoreMonitorIdentityOverride);
 

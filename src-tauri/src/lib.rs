@@ -23,6 +23,7 @@ pub fn run() {
             monitor_identity::monitor_identity_get_status,
             monitor_identity::monitor_identity_apply_override,
             monitor_identity::monitor_identity_install_inf_override,
+            monitor_identity::monitor_identity_reenumerate_device,
             monitor_identity::monitor_identity_confirm_override,
             monitor_identity::monitor_identity_restore_change
         ])
