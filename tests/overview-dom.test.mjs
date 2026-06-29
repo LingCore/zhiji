@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import assert from "node:assert/strict";
+import { inflateSync } from "node:zlib";
 import { JSDOM } from "jsdom";
 
 const html = readFileSync(new URL("../frontend/index.html", import.meta.url), "utf8");
@@ -116,6 +117,90 @@ function pngInfo(buffer) {
     width: buffer.readUInt32BE(16),
     height: buffer.readUInt32BE(20),
     colorType: buffer[25]
+  };
+}
+
+function paethPredictor(left, up, upLeft) {
+  const p = left + up - upLeft;
+  const pa = Math.abs(p - left);
+  const pb = Math.abs(p - up);
+  const pc = Math.abs(p - upLeft);
+  if (pa <= pb && pa <= pc) return left;
+  if (pb <= pc) return up;
+  return upLeft;
+}
+
+function pngRgbaPixels(buffer) {
+  const info = pngInfo(buffer);
+  assert.equal(buffer[24], 8, "PNG 图标应为 8-bit RGBA");
+  assert.equal(info.colorType, 6, "PNG 图标应为 RGBA");
+
+  const idatChunks = [];
+  let offset = 8;
+  while (offset < buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.subarray(offset + 4, offset + 8).toString("ascii");
+    const dataStart = offset + 8;
+    if (type === "IDAT") {
+      idatChunks.push(buffer.subarray(dataStart, dataStart + length));
+    }
+    offset = dataStart + length + 4;
+    if (type === "IEND") break;
+  }
+
+  const inflated = inflateSync(Buffer.concat(idatChunks));
+  const bytesPerPixel = 4;
+  const stride = info.width * bytesPerPixel;
+  const pixels = Buffer.alloc(info.height * stride);
+  let sourceOffset = 0;
+
+  for (let y = 0; y < info.height; y += 1) {
+    const filter = inflated[sourceOffset];
+    sourceOffset += 1;
+    for (let x = 0; x < stride; x += 1) {
+      const raw = inflated[sourceOffset + x];
+      const left = x >= bytesPerPixel ? pixels[y * stride + x - bytesPerPixel] : 0;
+      const up = y > 0 ? pixels[(y - 1) * stride + x] : 0;
+      const upLeft = y > 0 && x >= bytesPerPixel ? pixels[(y - 1) * stride + x - bytesPerPixel] : 0;
+      let value = raw;
+      if (filter === 1) value = raw + left;
+      if (filter === 2) value = raw + up;
+      if (filter === 3) value = raw + Math.floor((left + up) / 2);
+      if (filter === 4) value = raw + paethPredictor(left, up, upLeft);
+      pixels[y * stride + x] = value & 0xff;
+    }
+    sourceOffset += stride;
+  }
+
+  return { ...info, pixels };
+}
+
+function lightChipBbox(buffer) {
+  const { width, height, pixels } = pngRgbaPixels(buffer);
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      const r = pixels[offset];
+      const g = pixels[offset + 1];
+      const b = pixels[offset + 2];
+      const a = pixels[offset + 3];
+      if (a > 0 && r > 120 && g > 120 && b > 120) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1
   };
 }
 
@@ -383,6 +468,9 @@ check("应用图标复用标题栏 Logo 的浅色芯片风格", () => {
   assert.equal(png.width, 256);
   assert.equal(png.height, 256);
   assert.equal(png.colorType, 6, "PNG 图标应保留透明通道");
+  const chip = lightChipBbox(iconPng);
+  assert.equal(chip.width, chip.height, "应用图标浅色底板必须是 1:1 正方形");
+  assert.ok(chip.width >= 180, "应用图标浅色底板应保持足够的可识别面积");
   assert.deepEqual(icoSizes(iconIco), [
     [16, 16],
     [32, 32],
