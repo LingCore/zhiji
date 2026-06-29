@@ -12,6 +12,7 @@ const packageLock = JSON.parse(readFileSync(new URL("../package-lock.json", impo
 const licenseText = readFileSync(new URL("../LICENSE", import.meta.url), "utf8");
 const thirdPartyNotices = readFileSync(new URL("../THIRD_PARTY_NOTICES.md", import.meta.url), "utf8");
 const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+const readmeEn = readFileSync(new URL("../README.en.md", import.meta.url), "utf8");
 const cargoToml = readFileSync(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8");
 const tauriConfig = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
 const tauriCapability = JSON.parse(readFileSync(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"));
@@ -328,8 +329,12 @@ check("发布身份不再暴露旧工程名", () => {
 check("开源协议和第三方声明已写入仓库", () => {
   assert.ok(licenseText.startsWith("MIT License"));
   assert.ok(licenseText.includes("Copyright (c) 2026 LingCore"));
-  assert.ok(readme.includes("GitHub: https://github.com/LingCore/zhiji"));
-  assert.ok(readme.includes("The project source code is released under the MIT License."));
+  assert.ok(readme.includes("[English](README.en.md)"));
+  assert.ok(readme.includes("GitHub Releases: https://github.com/LingCore/zhiji/releases"));
+  assert.ok(readme.includes("项目源码使用 MIT License"));
+  assert.ok(readmeEn.includes("[中文](README.md)"));
+  assert.ok(readmeEn.includes("GitHub Releases: https://github.com/LingCore/zhiji/releases"));
+  assert.ok(readmeEn.includes("The project source code is released under the MIT License."));
   assert.ok(thirdPartyNotices.includes("BlueScreenView"));
   assert.ok(thirdPartyNotices.includes("not covered by this project's"));
 });
