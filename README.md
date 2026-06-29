@@ -48,6 +48,14 @@ npm run tauri build
 src-tauri\target\release\bundle\nsis\
 ```
 
+## 常见问题
+
+### 任务栏图标看起来没有更新
+
+Windows 可能会缓存旧的任务栏图标。更新安装包后，如果任务栏仍显示旧图标，可以先退出知机，取消固定任务栏图标，再重新打开并固定；必要时重启 Explorer 或重启 Windows。
+
+知机的 `.ico` 已包含 Windows 任务栏常用尺寸，并把 `48x48` 图标放在首位，以减少系统缩放造成的模糊。
+
 ## 开源协议
 
 项目源码使用 MIT License，详见 [LICENSE](LICENSE)。

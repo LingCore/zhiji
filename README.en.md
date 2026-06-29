@@ -48,6 +48,14 @@ The generated installer is placed under:
 src-tauri\target\release\bundle\nsis\
 ```
 
+## Troubleshooting
+
+### The taskbar icon does not look updated
+
+Windows may cache old taskbar icons. After installing an updated build, exit Zhiji, unpin the old taskbar icon, reopen the app, and pin it again. If the old icon still appears, restart Explorer or reboot Windows.
+
+Zhiji's `.ico` includes common Windows taskbar target sizes and places the `48x48` icon first to reduce blur caused by system scaling.
+
 ## License
 
 The project source code is released under the MIT License. See [LICENSE](LICENSE).
