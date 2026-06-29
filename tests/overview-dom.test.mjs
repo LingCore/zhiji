@@ -510,21 +510,33 @@ check("应用图标复用标题栏 Logo 的浅色芯片风格", () => {
   assert.equal(chip.width, chip.height, "应用图标浅色底板必须是 1:1 正方形");
   assert.ok(chip.width >= 180, "应用图标浅色底板应保持足够的可识别面积");
   assert.deepEqual(icoSizes(iconIco), [
-    [16, 16],
-    [32, 32],
     [48, 48],
+    [24, 24],
+    [30, 30],
+    [32, 32],
+    [36, 36],
+    [40, 40],
+    [60, 60],
     [64, 64],
+    [72, 72],
+    [80, 80],
+    [96, 96],
     [128, 128],
-    [256, 256]
+    [256, 256],
+    [20, 20],
+    [16, 16]
   ]);
   const entries = icoEntries(iconIco);
-  for (const size of [32, 48]) {
+  assert.equal(entries[0].width, 48, "Tauri 运行时会读取 ICO 首个条目，首个条目应为任务栏友好的 48px");
+  for (const size of [24, 30, 32, 36, 40, 48, 60, 72, 96]) {
     const entry = entries.find((item) => item.width === size && item.height === size);
     assert.ok(entry, `ICO 应包含 ${size}x${size} 任务栏常用尺寸`);
     assert.equal(entry.bitCount, 32, `${size}x${size} ICO 条目应为 32-bit`);
     assert.deepEqual([...entry.data.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], `${size}x${size} ICO 条目应使用原生 PNG 数据`);
     const entryChip = lightChipBbox(entry.data);
     assert.equal(entryChip.width, entryChip.height, `${size}x${size} 图标底板必须保持 1:1`);
+    assert.equal(entryChip.x * 2 + entryChip.width, size, `${size}x${size} 图标底板必须水平居中`);
+    assert.equal(entryChip.y * 2 + entryChip.height, size, `${size}x${size} 图标底板必须垂直居中`);
     assert.ok(exactDarkPixelCount(entry.data) >= size * 3, `${size}x${size} 图标应保留足够的实心深色像素，避免任务栏缩放发糊`);
   }
   assert.match(
