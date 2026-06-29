@@ -214,6 +214,44 @@ function icoSizes(buffer) {
   });
 }
 
+function icoEntries(buffer) {
+  assert.equal(buffer.readUInt16LE(0), 0, "ICO reserved field should be 0");
+  assert.equal(buffer.readUInt16LE(2), 1, "ICO type should be icon");
+  const count = buffer.readUInt16LE(4);
+  return Array.from({ length: count }, (_, index) => {
+    const entryOffset = 6 + index * 16;
+    const width = buffer[entryOffset] || 256;
+    const height = buffer[entryOffset + 1] || 256;
+    const bitCount = buffer.readUInt16LE(entryOffset + 6);
+    const length = buffer.readUInt32LE(entryOffset + 8);
+    const imageOffset = buffer.readUInt32LE(entryOffset + 12);
+    return {
+      width,
+      height,
+      bitCount,
+      data: buffer.subarray(imageOffset, imageOffset + length)
+    };
+  });
+}
+
+function exactDarkPixelCount(buffer) {
+  const { width, height, pixels } = pngRgbaPixels(buffer);
+  let count = 0;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      const r = pixels[offset];
+      const g = pixels[offset + 1];
+      const b = pixels[offset + 2];
+      const a = pixels[offset + 3];
+      if (a > 0 && r <= 10 && g <= 10 && b <= 10) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
+
 console.log("overview-dom.test.mjs");
 
 check("旧的 Windows 功能面板已删除", () => {
@@ -479,6 +517,16 @@ check("应用图标复用标题栏 Logo 的浅色芯片风格", () => {
     [128, 128],
     [256, 256]
   ]);
+  const entries = icoEntries(iconIco);
+  for (const size of [32, 48]) {
+    const entry = entries.find((item) => item.width === size && item.height === size);
+    assert.ok(entry, `ICO 应包含 ${size}x${size} 任务栏常用尺寸`);
+    assert.equal(entry.bitCount, 32, `${size}x${size} ICO 条目应为 32-bit`);
+    assert.deepEqual([...entry.data.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], `${size}x${size} ICO 条目应使用原生 PNG 数据`);
+    const entryChip = lightChipBbox(entry.data);
+    assert.equal(entryChip.width, entryChip.height, `${size}x${size} 图标底板必须保持 1:1`);
+    assert.ok(exactDarkPixelCount(entry.data) >= size * 3, `${size}x${size} 图标应保留足够的实心深色像素，避免任务栏缩放发糊`);
+  }
   assert.match(
     css,
     /\.titlebar-mark\s*\{[\s\S]*background: linear-gradient\(135deg, #f5f5f5, #bdbdbd\);[\s\S]*color: #050505;/,
