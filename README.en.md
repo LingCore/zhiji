@@ -4,6 +4,8 @@
 
 Zhiji is a Tauri + Rust desktop utility for inspecting and adjusting key Windows settings, virtual memory, blue screen dump collection, competitive gaming optimizations, and hardware information.
 
+![Zhiji overview](docs/images/overview.png)
+
 ## Features
 
 - Inspect CPU virtualization, Hyper-V, Secure Boot, TPM, BCD, and related states.

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
@@ -330,11 +331,14 @@ check("开源协议和第三方声明已写入仓库", () => {
   assert.ok(licenseText.startsWith("MIT License"));
   assert.ok(licenseText.includes("Copyright (c) 2026 LingCore"));
   assert.ok(readme.includes("[English](README.en.md)"));
+  assert.ok(readme.includes("![知机概览界面](docs/images/overview.png)"));
   assert.ok(readme.includes("GitHub Releases: https://github.com/LingCore/zhiji/releases"));
   assert.ok(readme.includes("项目源码使用 MIT License"));
   assert.ok(readmeEn.includes("[中文](README.md)"));
+  assert.ok(readmeEn.includes("![Zhiji overview](docs/images/overview.png)"));
   assert.ok(readmeEn.includes("GitHub Releases: https://github.com/LingCore/zhiji/releases"));
   assert.ok(readmeEn.includes("The project source code is released under the MIT License."));
+  assert.ok(existsSync(new URL("../docs/images/overview.png", import.meta.url)));
   assert.ok(thirdPartyNotices.includes("BlueScreenView"));
   assert.ok(thirdPartyNotices.includes("not covered by this project's"));
 });

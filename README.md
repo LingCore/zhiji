@@ -4,6 +4,8 @@
 
 知机是一个 Tauri + Rust 桌面工具，用于查看和调整 Windows 关键配置、虚拟内存、蓝屏收集、竞技模式优化和硬件信息。
 
+![知机概览界面](docs/images/overview.png)
+
 ## 功能
 
 - 查看 CPU 虚拟化、Hyper-V、安全启动、TPM、BCD 等状态。
