@@ -667,6 +667,9 @@ check("亮色主题使用中性灰白界面且状态颜色可读", () => {
   assert.ok(css.includes(":root[data-theme=\"light\"] .state-group-title,\n:root[data-theme=\"light\"] .health-score span,\n:root[data-theme=\"light\"] .feature-state {\n  color: #27272a;"), "亮色标题和关键数值不应到处使用蓝色");
   assert.ok(css.includes(":root[data-theme=\"light\"] .state-group {\n  border-color: #e4e4e7;"), "亮色分组容器描边应更轻");
   assert.ok(css.includes(":root[data-theme=\"light\"] .requirement-row {\n  border-color: #e4e4e7;"), "亮色功能条目不能继承暗色深描边");
+  assert.match(lightCss, /\.health-score,[\s\S]*\.vm-current-grid > div,[\s\S]*\.formula-option\s*\{\n  border-color: #e4e4e7;/, "亮色统计卡和虚拟内存小卡片应统一使用浅灰描边");
+  assert.match(lightCss, /\.formula-option\.active\s*\{[\s\S]*border-color: #d4d4d8;/, "亮色选中方案不能使用黑色描边");
+  assert.match(lightCss, /\.formula-option\.current:not\(\.active\)\s*\{\n  border-color: #d4d4d8;/, "亮色当前方案不能使用高对比深描边");
   assert.ok(css.includes(":root[data-theme=\"light\"] .requirement-row:hover {\n  border-color: #d4d4d8;"), "亮色功能条目 hover 才轻微加深");
   assert.ok(css.includes(":root[data-theme=\"light\"] .health-panel:hover,\n:root[data-theme=\"light\"] .metric-card:hover,\n:root[data-theme=\"light\"] .panel:hover {\n  border-color: #d4d4d8;"), "亮色主卡片 hover 描边不能继承暗色深灰");
   assert.ok(css.includes(":root[data-theme=\"light\"] .formula-option:hover,\n:root[data-theme=\"light\"] .dump-row:hover {\n  border-color: #d4d4d8;"), "亮色列表卡片 hover 描边应保持浅灰");

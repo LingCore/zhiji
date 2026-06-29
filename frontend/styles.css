@@ -2279,6 +2279,36 @@ h2 {
   background: #ffffff;
 }
 
+:root[data-theme="light"] .health-panel,
+:root[data-theme="light"] .metric-card,
+:root[data-theme="light"] .panel,
+:root[data-theme="light"] .health-score,
+:root[data-theme="light"] .control-group-row,
+:root[data-theme="light"] .vm-current-box,
+:root[data-theme="light"] .vm-scheme-block,
+:root[data-theme="light"] .recommendation-box,
+:root[data-theme="light"] .vm-metrics > div,
+:root[data-theme="light"] .bsod-metrics > div,
+:root[data-theme="light"] .pagefile-card,
+:root[data-theme="light"] .bsod-path-box,
+:root[data-theme="light"] .dump-row,
+:root[data-theme="light"] .detail-message,
+:root[data-theme="light"] .table-header,
+:root[data-theme="light"] .vm-current-grid > div,
+:root[data-theme="light"] .formula-option {
+  border-color: #e4e4e7;
+}
+
+:root[data-theme="light"] .formula-option.active {
+  background: #fafafa;
+  border-color: #d4d4d8;
+  color: #18181b;
+}
+
+:root[data-theme="light"] .formula-option.current:not(.active) {
+  border-color: #d4d4d8;
+}
+
 :root[data-theme="light"] .state-group {
   border-color: #e4e4e7;
 }
