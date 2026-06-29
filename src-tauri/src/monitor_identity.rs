@@ -275,10 +275,12 @@ fn apply_monitor_identity_change(
     fs::create_dir_all(&inf_dir)
         .map_err(|error| format!("无法创建显示器 INF 备份目录：{error}"))?;
     let generated_inf_path = inf_dir.join(format!("{change_id}.inf"));
+    let catalog_file_name = format!("{change_id}.cat");
     let inf = generate_monitor_inf(
         &snapshot.hardware_id,
         &target_identity.windows_hardware_id,
         &target_edid,
+        &catalog_file_name,
     );
     fs::write(&generated_inf_path, inf)
         .map_err(|error| format!("无法写入显示器 INF 备份：{error}"))?;
@@ -760,6 +762,7 @@ fn generate_monitor_inf(
     original_hardware_id: &str,
     target_hardware_id: &str,
     edid: &[u8],
+    catalog_file_name: &str,
 ) -> String {
     let bytes = edid[..EDID_BLOCK_LEN]
         .chunks(16)
@@ -781,6 +784,7 @@ Signature="$WINDOWS NT$"
 Class=Monitor
 ClassGuid={{4D36E96E-E325-11CE-BFC1-08002BE10318}}
 Provider=%ProviderName%
+CatalogFile={catalog_file_name}
 DriverVer=06/28/2026,1.0.0.0
 
 [Manufacturer]
@@ -902,6 +906,116 @@ function Convert-HexToBytes([string]$hex) {{
   return $bytes
 }}
 
+function Find-WindowsKitTool([string]$toolName) {{
+  $roots = @(
+    "${{env:ProgramFiles(x86)}}\Windows Kits\10\bin",
+    "$env:ProgramFiles\Windows Kits\10\bin"
+  ) | Where-Object {{ $_ -and (Test-Path -LiteralPath $_) }}
+  $tools = @()
+  foreach ($root in $roots) {{
+    $tools += @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter $toolName -ErrorAction SilentlyContinue)
+  }}
+  $preferred = $tools | Where-Object {{ $_.FullName -match '\\x64\\' }} | Sort-Object FullName -Descending | Select-Object -First 1
+  if ($preferred) {{ return $preferred.FullName }}
+  $fallback = $tools | Sort-Object FullName -Descending | Select-Object -First 1
+  if ($fallback) {{ return $fallback.FullName }}
+  throw "找不到 Windows Kits 工具 $toolName；请安装 Windows Driver Kit 或包含该工具的 Windows Kits 组件。"
+}}
+
+function Ensure-MonitorCatalogCertificate([string]$workDir) {{
+  $subject = 'CN=PC Requirements Checker Monitor Identity Test Signing'
+  $cert = Get-ChildItem -Path Cert:\LocalMachine\My -CodeSigningCert -ErrorAction SilentlyContinue |
+    Where-Object {{ $_.Subject -eq $subject -and $_.HasPrivateKey }} |
+    Sort-Object NotAfter -Descending |
+    Select-Object -First 1
+  if (-not $cert) {{
+    $cert = New-SelfSignedCertificate `
+      -Type CodeSigningCert `
+      -Subject $subject `
+      -CertStoreLocation Cert:\LocalMachine\My `
+      -KeyAlgorithm RSA `
+      -KeyLength 2048 `
+      -HashAlgorithm SHA256 `
+      -KeyExportPolicy Exportable `
+      -KeyUsage DigitalSignature `
+      -NotAfter (Get-Date).AddYears(10)
+    "已创建本机显示器 INF 测试签名证书：$($cert.Thumbprint)"
+  }} else {{
+    "复用本机显示器 INF 测试签名证书：$($cert.Thumbprint)"
+  }}
+
+  $cerPath = Join-Path $workDir 'pc-monitor-identity-test-signing.cer'
+  Export-Certificate -Cert $cert -FilePath $cerPath -Force | Out-Null
+  Import-Certificate -FilePath $cerPath -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+  Import-Certificate -FilePath $cerPath -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
+  return $cert
+}}
+
+function Ensure-SignedMonitorCatalog([string]$infPath) {{
+  $infDirectory = Split-Path -Parent $infPath
+  $infName = Split-Path -Leaf $infPath
+  $infText = Get-Content -LiteralPath $infPath -Raw
+  $catalogMatch = [regex]::Match($infText, '(?im)^\s*CatalogFile(?:\.[^\s=]+)?\s*=\s*(.+?)\s*$')
+  if (-not $catalogMatch.Success) {{
+    throw "显示器 INF 缺少 CatalogFile，无法生成可安装的签名驱动包。"
+  }}
+  $catalogName = $catalogMatch.Groups[1].Value.Trim().Trim('"')
+  if ($catalogName -notmatch '^[A-Za-z0-9_.-]+\.cat$') {{
+    throw "显示器 INF 的 CatalogFile 名称不安全：$catalogName"
+  }}
+  $catalogPath = Join-Path $infDirectory $catalogName
+  $existingSignature = if (Test-Path -LiteralPath $catalogPath) {{ Get-AuthenticodeSignature -LiteralPath $catalogPath }} else {{ $null }}
+  if ($existingSignature -and $existingSignature.Status -eq 'Valid') {{
+    "已存在有效 catalog 签名：$catalogName"
+    return $catalogPath
+  }}
+
+  $makeCat = Find-WindowsKitTool 'makecat.exe'
+  $signTool = Find-WindowsKitTool 'signtool.exe'
+  $cdfName = [IO.Path]::ChangeExtension($catalogName, '.cdf')
+  $cdfPath = Join-Path $infDirectory $cdfName
+  $cdf = @"
+[CatalogHeader]
+Name=$catalogName
+PublicVersion=0x0000001
+EncodingType=0x00010001
+CATATTR1=0x10010001:OSAttr:2:10.0
+
+[CatalogFiles]
+<hash>MonitorInf=$infName
+"@
+  Set-Content -LiteralPath $cdfPath -Value $cdf -Encoding ASCII
+
+  Push-Location $infDirectory
+  try {{
+    $makeCatOutput = & $makeCat -v $cdfName 2>&1 | Out-String
+    $makeCatExit = $LASTEXITCODE
+  }} finally {{
+    Pop-Location
+  }}
+  "makecat 输出："
+  $makeCatOutput.Trim()
+  if ($makeCatExit -ne 0 -or -not (Test-Path -LiteralPath $catalogPath)) {{
+    throw "生成显示器 INF catalog 失败。"
+  }}
+
+  $cert = Ensure-MonitorCatalogCertificate $infDirectory
+  $signOutput = & $signTool sign /fd SHA256 /sm /s My /sha1 $cert.Thumbprint $catalogPath 2>&1 | Out-String
+  $signExit = $LASTEXITCODE
+  "signtool sign 输出："
+  $signOutput.Trim()
+  if ($signExit -ne 0) {{
+    throw "签名显示器 INF catalog 失败。"
+  }}
+
+  $signature = Get-AuthenticodeSignature -LiteralPath $catalogPath
+  if ($signature.Status -ne 'Valid') {{
+    throw "显示器 INF catalog 签名无效：$($signature.Status) $($signature.StatusMessage)"
+  }}
+  "已生成并签名显示器 INF catalog：$catalogName"
+  return $catalogPath
+}}
+
 function Restore-PreviousEdidOverride {{
 {restore_body}
 }}
@@ -909,21 +1023,7 @@ function Restore-PreviousEdidOverride {{
 $overridePath = 'HKLM:\{registry_path}\EDID_OVERRIDE'
 $publishedDriverNamePath = '{published_driver_name_path}'
 $infPath = '{generated_inf_path}'
-$infDirectory = Split-Path -Parent $infPath
-$infText = Get-Content -LiteralPath $infPath -Raw
-$catalogMatch = [regex]::Match($infText, '(?im)^\s*CatalogFile(?:\.[^\s=]+)?\s*=\s*(.+?)\s*$')
-if (-not $catalogMatch.Success) {{
-  throw "Windows 11 已启用代码完整性，显示器 INF 必须包含已签名的 .cat catalog；当前生成的 INF 没有 CatalogFile，因此已跳过安装且未写入新的 EDID_OVERRIDE。"
-}}
-$catalogName = $catalogMatch.Groups[1].Value.Trim().Trim('"')
-$catalogPath = Join-Path $infDirectory $catalogName
-if (-not (Test-Path -LiteralPath $catalogPath)) {{
-  throw "Windows 11 已启用代码完整性，显示器 INF 声明了 catalog '$catalogName'，但文件不存在；已跳过安装且未写入新的 EDID_OVERRIDE。"
-}}
-$catalogSignature = Get-AuthenticodeSignature -LiteralPath $catalogPath
-if ($catalogSignature.Status -ne 'Valid') {{
-  throw "Windows 11 已启用代码完整性，显示器 INF 的 catalog 签名无效：$($catalogSignature.Status)；已跳过安装且未写入新的 EDID_OVERRIDE。"
-}}
+Ensure-SignedMonitorCatalog $infPath | Out-Null
 
 Remove-Item -LiteralPath $publishedDriverNamePath -Force -ErrorAction SilentlyContinue
 New-Item -Path $overridePath -Force | Out-Null
@@ -1602,8 +1702,14 @@ mod tests {
     #[test]
     fn generated_inf_contains_edid_override_block() {
         let edid = sample_edid();
-        let inf = generate_monitor_inf("MONITOR\\LHC906A", "MONITOR\\DELA123", &edid);
+        let inf = generate_monitor_inf(
+            "MONITOR\\LHC906A",
+            "MONITOR\\DELA123",
+            &edid,
+            "monitor-test.cat",
+        );
         assert!(inf.contains("Class=Monitor"));
+        assert!(inf.contains("CatalogFile=monitor-test.cat"));
         assert!(inf.contains("HKR,EDID_OVERRIDE,\"0\",0x00000001"));
         assert!(inf.contains("MONITOR\\LHC906A"));
         assert!(inf.contains("MONITOR\\DELA123 EDID identity override"));
@@ -1629,7 +1735,12 @@ mod tests {
     #[test]
     fn generated_inf_uses_hardware_install_section() {
         let edid = sample_edid();
-        let inf = generate_monitor_inf("MONITOR\\LHC906A", "MONITOR\\DELA123", &edid);
+        let inf = generate_monitor_inf(
+            "MONITOR\\LHC906A",
+            "MONITOR\\DELA123",
+            &edid,
+            "monitor-test.cat",
+        );
         assert!(inf.contains("[MonitorInstall.NTamd64.HW]"));
         assert!(inf.contains("[MonitorInstall.NTarm64.HW]"));
         assert!(inf.contains("%MonitorName%=MonitorInstall.NTamd64,MONITOR\\LHC906A"));
@@ -1651,7 +1762,10 @@ mod tests {
         assert!(script.contains("/install"));
         assert!(script.contains("published-driver.txt"));
         assert!(script.contains("CatalogFile"));
-        assert!(script.contains("代码完整性"));
+        assert!(script.contains("makecat.exe"));
+        assert!(script.contains("signtool.exe"));
+        assert!(script.contains("New-SelfSignedCertificate"));
+        assert!(script.contains("TrustedPublisher"));
         assert!(script.contains("Restore-PreviousEdidOverride"));
         assert!(script.contains("pnputil /enum-devices"));
         assert!(
