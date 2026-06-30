@@ -4,6 +4,15 @@
 
 Zhiji is a Tauri + Rust desktop utility for inspecting and adjusting key Windows settings, virtual memory, blue screen dump collection, competitive gaming optimizations, and hardware information.
 
+## Open Source Promotion
+
+This project participates in the open source promotion program of the [LINUX DO](https://linux.do) community and links back to LINUX DO on the project homepage.
+
+- Link: [LINUX DO](https://linux.do)
+- The project source code is fully open source.
+- The project is released under the MIT License.
+- Feedback is welcome through GitHub Issues or the related LINUX DO topic.
+
 ![Zhiji overview](docs/images/overview.png)
 
 ## Features

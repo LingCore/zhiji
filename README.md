@@ -4,6 +4,15 @@
 
 知机是一个 Tauri + Rust 桌面工具，用于查看和调整 Windows 关键配置、虚拟内存、蓝屏收集、竞技模式优化和硬件信息。
 
+## 开源推广
+
+本项目参与 [LINUX DO](https://linux.do) 社区开源推广，并已在项目主页链接认可 LINUX DO 社区。
+
+- 友链：[LINUX DO](https://linux.do)
+- 项目源码完整开源，无未开源部分。
+- 项目使用 MIT License 发布。
+- 欢迎通过 GitHub Issues 或 LINUX DO 相关话题反馈建议。
+
 ![知机概览界面](docs/images/overview.png)
 
 ## 功能
